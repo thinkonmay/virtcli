@@ -1,6 +1,11 @@
 package model
 
-import "encoding/xml"
+import (
+	"encoding/xml"
+	"fmt"
+
+	"gopkg.in/yaml.v3"
+)
 
 type Memory struct {
 	Unit  *string `xml:"unit,attr"`
@@ -113,21 +118,21 @@ type Interface struct {
 }
 
 type HostDev struct {
-	Mode          *string `xml:"mode,attr"`
-	Type          *string `xml:"type,attr"`
-	Managed       *string `xml:"managed,attr"`
+	Mode          string `xml:"mode,attr"`
+	Type          string `xml:"type,attr"`
+	Managed       string `xml:"managed,attr"`
 	SourceAddress *struct {
-		Domain   *string `xml:"domain,attr"`
-		Bus      *string `xml:"bus,attr"`
-		Slot     *string `xml:"slot,attr"`
-		Function *string `xml:"function,attr"`
+		Domain   string `xml:"domain,attr"`
+		Bus      string `xml:"bus,attr"`
+		Slot     string `xml:"slot,attr"`
+		Function string `xml:"function,attr"`
 	} `xml:"source>address"`
 	Address *struct {
-		Type     *string `xml:"type,attr"`
-		Domain   *string `xml:"domain,attr"`
-		Bus      *string `xml:"bus,attr"`
-		Slot     *string `xml:"slot,attr"`
-		Function *string `xml:"function,attr"`
+		Type     string `xml:"type,attr"`
+		Domain   string `xml:"domain,attr"`
+		Bus      string `xml:"bus,attr"`
+		Slot     string `xml:"slot,attr"`
+		Function string `xml:"function,attr"`
 	} `xml:"address"`
 }
 
@@ -263,3 +268,68 @@ type Domain struct {
 	Hostdevs    []HostDev    `xml:"devices>hostdev"`
 	Memballoon  *Memballoon   `xml:"devices>memballoon"`
 }
+func (domain *Domain)Parse(data []byte) error {
+	return xml.Unmarshal(data,domain)
+}
+func (domain *Domain)ToString() string {
+	dat,_ := yaml.Marshal(domain)
+	fmt.Println(string(dat))
+	data,_ := xml.MarshalIndent(domain,"","  ")
+	return string(data)
+}
+
+
+
+
+type GPU struct {
+	XMLName xml.Name `xml:"device" yaml:"domain,inline"`
+
+  	Name string `xml:"name"`
+  	Path string `xml:"path"`
+  	Parent string `xml:"parent"`
+
+	Driver struct {
+		Name string `xml:"name"`
+	}`xml:"driver"`
+
+
+	Capability struct {
+		Type string `xml:"type,attr"`
+		Class string `xml:"class"`
+		Domain int `xml:"domain"`
+		Bus int `xml:"bus"`
+		Slot int `xml:"slot"`
+		Function int `xml:"function"`
+
+		Product  struct{
+			Val string `xml:",chardata"`
+			Id string `xml:"id,attr"`
+		}`xml:"product"`
+		Vendor  struct{
+			Val string `xml:",chardata"`
+			Id string `xml:"id,attr"`
+		}`xml:"vendor"`
+		IommuGroup struct {
+			Number *int `xml:"number,attr"`
+			Address []struct{
+				Domain string `xml:"domain,attr"`
+				Bus string `xml:"bus,attr"`
+				Slot string `xml:"slot,attr"`
+				Function string `xml:"function,attr"`
+			} `xml:"address"`
+		} `xml:"iommuGroup"`
+		Numa *struct {
+			Node *int `xml:"node,attr"`
+		} `xml:"numa"`
+		Link []struct{
+			Validity 	*string `xml:"validity,attr"`
+			Port 		*int`xml:"port,attr"`
+			Speed 		*int `xml:"speed,attr"`
+			Width 		*int `xml:"width,attr"`
+		} `xml:"pci-express>link"` 
+	} `xml:"capability"`
+}
+func (domain *GPU)Parse(data []byte) error {
+	return xml.Unmarshal(data,domain)
+}
+

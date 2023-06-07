@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	qemuhypervisor "test/internal/qemu/hypervisor"
+	"test/internal/libvirt"
+	qemuhypervisor "test/internal/qemu"
+	// "test/model"
+
+	"gopkg.in/yaml.v3"
 )
 
 type AuthHeader struct {
@@ -27,6 +31,7 @@ func (auth *AuthHeader)ParseReq(r *http.Request) {
 type VirtDaemon struct {
 	APIKeys map[string]string
 	hypervisor *qemuhypervisor.QEMUHypervisor
+	libvirt *libvirt.Libvirt
 }
 
 func NewVirtDaemon(port int) *VirtDaemon{
@@ -35,10 +40,12 @@ func NewVirtDaemon(port int) *VirtDaemon{
 			"iuvgb2qg7rwyashbvkaiueg2v3uqfwaivusgfvy" : "972gavszdufg8oywfabsdzvoaiwgefb",
 		},
 		hypervisor: qemuhypervisor.NewQEMUHypervisor(),
+		libvirt: libvirt.NewLibvirt(),
 	}
 
 	http.HandleFunc("/", 		daemon.deployVM)
 	http.HandleFunc("/list", 	daemon.listVMs)
+	http.HandleFunc("/gpus", 	daemon.listGPUs)
 
 	go http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d",port), nil)
 	return daemon
@@ -69,6 +76,13 @@ func (daemon *VirtDaemon)deployVM(w http.ResponseWriter, r *http.Request) {
 }
 
 
+func (daemon *VirtDaemon)checkVMStatus(w http.ResponseWriter, r *http.Request) {
+	auth := &AuthHeader{}
+	auth.ParseReq(r)
+
+
+}
+
 
 
 
@@ -78,8 +92,36 @@ func (daemon *VirtDaemon)listVMs(w http.ResponseWriter, r *http.Request) {
 
 
 
-	doms := daemon.hypervisor.ListDomain()
-	data,_ := json.MarshalIndent(doms,"","  ")
+	// doms := daemon.hypervisor.ListDomain()
+	doms := daemon.libvirt.ListDomains()
+	data,_ := yaml.Marshal(doms)
+
+	w.WriteHeader(200)
+	io.WriteString(w, string(data))
+}
+
+func (daemon *VirtDaemon)listGPUs(w http.ResponseWriter, r *http.Request) {
+	auth := &AuthHeader{}
+	auth.ParseReq(r)
+
+
+
+	doms := daemon.libvirt.ListGPUs()
+
+	// filtered := []model.GPU{}
+	// dms := daemon.hypervisor.ListDomain()
+	// for i, g := range doms {
+	// 	for _, d := range dms {
+	// 		for _, p := range d.PcieDevs {
+	// 			// if p.Bus == *g.Capability.Link
+				
+	// 		}
+	// 		filtered = append(filtered, )
+			
+	// 	}
+	// }
+
+	data,_ := yaml.Marshal(doms)
 
 	w.WriteHeader(200)
 	io.WriteString(w, string(data))
