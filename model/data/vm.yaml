@@ -174,11 +174,7 @@ channel:
         controller: "0"
         bus: "0"
         port: "1"
-input:
-    - type: mouse
-      bus: ps2
-    - type: keyboard
-      bus: ps2
+input: null
 graphic:
     type: spice
     autoport: "yes"

@@ -1,7 +1,6 @@
 package nmap
 
 import (
-	"fmt"
 	"os/exec"
 	"strings"
 	"test/model"
@@ -30,7 +29,6 @@ func FindIPMac(subnet string) (result map[string]string) {
 
 		if mac != "" {
 			ipline := lines[i-2]
-			fmt.Printf("found %s\n", string(ipline))
 			words := strings.Split(string(ipline), " ")
 			for i2, v2 := range words {
 				if v2 == "for" && words[i2-1] == "report" {

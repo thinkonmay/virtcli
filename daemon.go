@@ -9,8 +9,10 @@ import (
 	"strings"
 	"test/internal/libvirt"
 	qemuhypervisor "test/internal/qemu"
+	qemuimg "test/internal/qemu/image"
 	"test/model"
 	"test/nmap"
+	"time"
 
 	"github.com/digitalocean/go-qemu/qemu"
 	"gopkg.in/yaml.v3"
@@ -88,15 +90,17 @@ func NewVirtDaemon(port int) *VirtDaemon{
 		libvirt: libvirt.NewLibvirt(),
 	}
 
-	http.HandleFunc("/deploy", 	daemon.deployVM)
-	http.HandleFunc("/delete", 	daemon.deleteVM)
-	http.HandleFunc("/status", 	daemon.statusVM)
+	http.HandleFunc("/deploy", 		daemon.deployVM)
+	http.HandleFunc("/delete", 		daemon.deleteVM)
+	http.HandleFunc("/status", 		daemon.statusVM)
 
-	http.HandleFunc("/vms", 	daemon.listVMs)
+	http.HandleFunc("/vms", 		daemon.listVMs)
 
-	http.HandleFunc("/gpus", 	daemon.listGPUs)
-	http.HandleFunc("/ifaces", 	daemon.listIfaces)
-	http.HandleFunc("/disks", 	daemon.listDisks)
+	http.HandleFunc("/disks", 		daemon.listDisks)
+	http.HandleFunc("/disk/clone", 	daemon.cloneDisk)
+
+	http.HandleFunc("/gpus", 		daemon.listGPUs)
+	http.HandleFunc("/ifaces", 		daemon.listIfaces)
 
 
 	go func ()  {
@@ -147,6 +151,12 @@ func (daemon *VirtDaemon)deployVM(w http.ResponseWriter, r *http.Request) {
 
 
 	server := struct{
+		VCPU int `yaml:"vcpus"`
+		RAM  int `yaml:"ram"`
+
+		GPU []model.GPU `yaml:"gpu"`
+		Volume []model.Volume`yaml:"volume"`
+		Interface []model.Iface`yaml:"interface"`
 	}{
 	}
 
@@ -158,10 +168,20 @@ func (daemon *VirtDaemon)deployVM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// daemon.libvirt.CreateVM()
+	name,err := daemon.libvirt.CreateVM(
+		server.VCPU,
+		server.RAM,
+		server.GPU,
+		server.Volume,
+		server.Interface,
+	)
+	if err != nil {
+		w.WriteHeader(400)
+		io.WriteString(w, err.Error())
+	}
 
 	w.WriteHeader(200)
-	io.WriteString(w, "success")
+	io.WriteString(w, name)
 }
 
 func (daemon *VirtDaemon)deleteVM(w http.ResponseWriter, r *http.Request) {
@@ -184,6 +204,7 @@ func (daemon *VirtDaemon)statusVM(w http.ResponseWriter, r *http.Request) {
 	server := struct{
 		ServerID string `json:"server_id"`
 	}{}
+
 	err = json.Unmarshal(body,&server)
 	if err != nil {
 		w.WriteHeader(200)
@@ -203,7 +224,6 @@ func (daemon *VirtDaemon)statusVM(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(404)
 	io.WriteString(w, "VM not found")
-	return
 }
 
 
@@ -294,6 +314,39 @@ func (daemon *VirtDaemon)listDisks(w http.ResponseWriter, r *http.Request) {
 	data,_ := yaml.Marshal(result)
 	io.WriteString(w, string(data))
 }
+func (daemon *VirtDaemon)cloneDisk(w http.ResponseWriter, r *http.Request) {
+	auth := &AuthHeader{}
+	auth.ParseReq(r)
+
+
+	body,_ := io.ReadAll(r.Body)
+	in := struct{ 
+		Source model.Volume `yaml:"source"` 
+		Size int `yaml:"size"` 
+	}{}
+	err := yaml.Unmarshal(body,&in)
+	if err != nil {
+		w.WriteHeader(400)
+		io.WriteString(w, "invalid body")
+	}
+
+
+	name := fmt.Sprintf("/disk/2TB1/%d.qcow2", time.Now().Nanosecond())
+	qemuimg.CloneVolume(in.Source.Path,name,in.Size)
+
+	volume := daemon.libvirt.ListDisks()
+	for _,v := range volume {
+		if v.Path == name {
+			w.WriteHeader(200)
+			data,_ := yaml.Marshal(v)
+			io.WriteString(w, string(data))
+			return
+		}
+	}
+
+	w.WriteHeader(400)
+	io.WriteString(w, "failed")
+}
 func (daemon *VirtDaemon)listIfaces(w http.ResponseWriter, r *http.Request) {
 	auth := &AuthHeader{}
 	auth.ParseReq(r)
@@ -316,6 +369,8 @@ func (daemon *VirtDaemon)listIfaces(w http.ResponseWriter, r *http.Request) {
 		for _, d := range qemudom {
 			for _, bd := range d.Interfaces {
 				if bd.Source.Dev == v.Name {
+					add = false
+				} else if bd.Target != nil || bd.Target.Dev == v.Name {
 					add = false
 				}
 			}

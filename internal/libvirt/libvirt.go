@@ -2,13 +2,16 @@ package libvirt
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"os"
 	"strings"
 	"test/model"
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
+	"gopkg.in/yaml.v3"
 )
 
 type Libvirt struct {
@@ -150,11 +153,30 @@ func (lv *Libvirt)ListDisks() []model.Volume{
 	return ret
 }
 
-func (lv *Libvirt)CreateVM(dom model.Domain,
+func (lv *Libvirt)CreateVM(vcpus int,
+							ram int,
 							gpus []model.GPU,
 							vols []model.Volume,
 							ifs  []model.Iface,
 							) (string,error) {
+	if vcpus % 2 == 1 {
+		return "",fmt.Errorf("vcpus should not be odd")
+	}
+
+	file,err := os.OpenFile("../../model/data/vm.yaml",os.O_RDWR,0755)
+	if err != nil {
+		panic(err)
+	}
+
+	data,err := io.ReadAll(file)
+	if err != nil {
+		panic(err)
+	}
+
+	dom := model.Domain{}
+	yaml.Unmarshal(data, &dom)
+
+	file.Close()
 	name := fmt.Sprintf("%d", time.Now().Nanosecond())
 	dom.Name = &name
 	dom.Uuid = nil
@@ -216,11 +238,16 @@ func (lv *Libvirt)CreateVM(dom model.Domain,
 			Model: &struct{Type *string "xml:\"type,attr\""}{
 				Type: &e1000,
 			},
-			// Mac: &struct{Address *string "xml:\"address,attr\""}{
-			// 	Address: d.Mac.Address,
-			// },
 		})
 	}
+
+	dom.Memory.Value        = ram * 1024 * 1024
+	dom.CurrentMemory.Value = ram * 1024 * 1024
+
+	dom.VCpu.Value 			= vcpus
+	dom.Cpu.Topology.Socket = 1
+	dom.Cpu.Topology.Cores  = vcpus / 2
+	dom.Cpu.Topology.Thread = 2
 
 	xml := dom.ToString()
 	result,err := lv.conn.DomainCreateXML(xml,libvirt.DomainNone)
@@ -257,39 +284,3 @@ func (lv *Libvirt)DeleteVM(name string) (error) {
 
 // // stats,err := l.ConnectGetAllDomainStats(domains,0,libvirt.ConnectGetAllDomainsStatsActive)
 // // fmt.Printf("%v\n",stats)
-
-// // dev,_,err := l.ConnectListAllNodeDevices(1,1)
-// // fmt.Printf("%v\n",dev)
-
-// networks, _, err := l.ConnectListAllNetworks(1, libvirt.ConnectListNetworksActive)
-// for _, n := range networks {
-// 	desc, _ := l.NetworkGetXMLDesc(n, 0)
-// 	fmt.Printf("%v\n", desc)
-// }
-
-// ifaces, _, err := l.ConnectListAllInterfaces(1, libvirt.ConnectListInterfacesActive)
-// for _, i2 := range ifaces {
-// 	desc, _ := l.InterfaceGetXMLDesc(i2, 0)
-// 	fmt.Printf("%v\n", desc)
-// }
-
-// pool, _, err := l.ConnectListAllStoragePools(1, libvirt.ConnectListStoragePoolsActive)
-// for _, sp := range pool {
-// 	l.StoragePoolRefresh(sp, 0)
-// 	vol, _, err := l.StoragePoolListAllVolumes(sp, 1, 0)
-// 	if err != nil {
-// 	}
-
-// 	for _, sv := range vol {
-// 		desc, _ := l.StorageVolGetXMLDesc(sv, 0)
-// 		fmt.Printf("%v\n", desc)
-// 	}
-// 	fmt.Printf("%v\n", vol)
-// }
-
-// state, err := l.DomainState("vm5")
-// fmt.Printf("%s\n", state)
-
-// if err := l.Disconnect(); err != nil {
-// 	log.Fatalf("failed to disconnect: %v", err)
-// }

@@ -5,12 +5,12 @@ import (
 )
 
 type Memory struct {
-	Unit  *string `xml:"unit,attr"`
-	Value *int    `xml:",chardata"`
+	Unit  string `xml:"unit,attr"`
+	Value int    `xml:",chardata"`
 }
 type VCPU struct {
-	Placement *string `xml:"placement,attr"`
-	Value     *int    `xml:",chardata"`
+	Placement string `xml:"placement,attr"`
+	Value     int    `xml:",chardata"`
 }
 
 type CPU struct {
@@ -20,9 +20,9 @@ type CPU struct {
 }
 
 type Topology struct {
-	Socket *int `xml:"sockets,attr"`
-	Cores  *int `xml:"cores,attr"`
-	Thread *int `xml:"threads,attr"`
+	Socket int `xml:"sockets,attr"`
+	Cores  int `xml:"cores,attr"`
+	Thread int `xml:"threads,attr"`
 }
 
 type Resource struct {

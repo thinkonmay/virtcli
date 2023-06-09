@@ -2,33 +2,16 @@ package libvirt
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"test/model"
 	"testing"
-
-	"gopkg.in/yaml.v3"
 )
 
 func TestCreateVM(t *testing.T) {
 	lv := NewLibvirt()
 
-	file,err := os.OpenFile("../../model/data/vm.yaml",os.O_RDWR,0755)
-	if err != nil {
-		panic(err)
-	}
-
-	data,err := io.ReadAll(file)
-	if err != nil {
-		panic(err)
-	}
-
-	dom := model.Domain{}
-	gpu := lv.ListGPUs()
-	vols := lv.ListDisks()
-	ifs := lv.ListIfaces()
-	yaml.Unmarshal(data, &dom)
-	file.Close()
+	gpu 	:= lv.ListGPUs()
+	vols 	:= lv.ListDisks()
+	ifs 	:= lv.ListIfaces()
 
 	vol := []model.Volume{}
 	for _, v := range vols {
@@ -39,16 +22,26 @@ func TestCreateVM(t *testing.T) {
 		}
 	}
 
-	dom.Input = []model.Input{}
+	i := []model.Iface{}
+	for _, v := range ifs {
+		if v.Name == "enp0s25" ||
+		   v.Name == "enp5s0" {
+			continue
+		}
+		i = append(i, v)
+	}
+
 	
-	_,err = lv.CreateVM(dom,gpu[:1],vol[1:2],ifs[1:2])
+	_,err := lv.CreateVM(8,16,gpu[:1],vol[1:2],i[1:2])
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 	}
 
 	
-	_,err = lv.CreateVM(dom,gpu[1:],vol[:1],ifs[:1])
+	_,err = lv.CreateVM(10,12,gpu[1:],vol[:1],i[:1])
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 	}
+
+
 }
