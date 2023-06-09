@@ -1,6 +1,7 @@
 package libvirt
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"test/model"
@@ -12,7 +13,7 @@ import (
 func TestCreateVM(t *testing.T) {
 	lv := NewLibvirt()
 
-	file,err := os.OpenFile("/home/huyhoang/go-libvirt/test/model/data/vm7.yaml",os.O_RDWR,0755)
+	file,err := os.OpenFile("../../model/data/vm.yaml",os.O_RDWR,0755)
 	if err != nil {
 		panic(err)
 	}
@@ -23,10 +24,31 @@ func TestCreateVM(t *testing.T) {
 	}
 
 	dom := model.Domain{}
-	gpu := lv.ListGPUs()[0]
+	gpu := lv.ListGPUs()
+	vols := lv.ListDisks()
+	ifs := lv.ListIfaces()
 	yaml.Unmarshal(data, &dom)
 	file.Close()
 
+	vol := []model.Volume{}
+	for _, v := range vols {
+		if v.Path == "/disk/2TB1/AtlatOS-copy.qcow2" ||
+		   v.Path == "/disk/2TB1/AtlasOS-cloned.qcow2" {
+			
+			vol = append(vol, v)
+		}
+	}
+
+	dom.Input = []model.Input{}
 	
-	_,_ = lv.CreateVM(dom,[]model.GPU{gpu})
+	_,err = lv.CreateVM(dom,gpu[:1],vol[1:2],ifs[1:2])
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+	}
+
+	
+	_,err = lv.CreateVM(dom,gpu[1:],vol[:1],ifs[:1])
+	if err != nil {
+		fmt.Printf("%s\n", err.Error())
+	}
 }

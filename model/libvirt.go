@@ -2,9 +2,6 @@ package model
 
 import (
 	"encoding/xml"
-	"fmt"
-
-	"gopkg.in/yaml.v3"
 )
 
 type Memory struct {
@@ -55,16 +52,16 @@ type Features struct {
 
 type Disk struct {
 	Driver *struct {
-		Name *string `xml:"name,attr"`
-		Type *string `xml:"type,attr"`
+		Name string `xml:"name,attr"`
+		Type string `xml:"type,attr"`
 	} `xml:"driver"`
 	Source *struct {
-		File  *string  `xml:"file,attr"`
-		Index *int `xml:"index,attr"`
+		File  string  `xml:"file,attr"`
+		Index int `xml:"index,attr"`
 	} `xml:"source"`
 	Target *struct {
-		Dev *string `xml:"dev,attr"`
-		Bus *string `xml:"bus,attr"`
+		Dev string `xml:"dev,attr"`
+		Bus string `xml:"bus,attr"`
 	} `xml:"target"`
 	Address *struct {
 		Type       *string `xml:"type,attr"`
@@ -98,12 +95,13 @@ type Controller struct {
 
 type Interface struct {
 	Type string `xml:"type,attr"`
+	Name *string `xml:"name,attr"`
 	Mac *struct {
 		Address *string `xml:"address,attr"`
 	} `xml:"mac"`
 	Source *struct {
-		Dev  *string `xml:"dev,attr"`
-		Mode *string `xml:"mode,attr"`
+		Dev  string `xml:"dev,attr"`
+		Mode string `xml:"mode,attr"`
 	} `xml:"source"`
 	Model *struct {
 		Type *string `xml:"type,attr"`
@@ -272,8 +270,6 @@ func (domain *Domain)Parse(data []byte) error {
 	return xml.Unmarshal(data,domain)
 }
 func (domain *Domain)ToString() string {
-	dat,_ := yaml.Marshal(domain)
-	fmt.Println(string(dat))
 	data,_ := xml.MarshalIndent(domain,"","  ")
 	return string(data)
 }
@@ -333,3 +329,60 @@ func (domain *GPU)Parse(data []byte) error {
 	return xml.Unmarshal(data,domain)
 }
 
+
+type Iface struct {
+	Type string `xml:"type,attr"`
+	Name *string `xml:"name,attr"`
+
+	Source *struct {
+		Dev  *string `xml:"dev,attr"`
+		Mode *string `xml:"mode,attr"`
+	} `xml:"source"`
+
+	Mac *struct {
+		Address *string `xml:"address,attr"`
+	} `xml:"mac"`
+
+	MTU *struct {
+		Size *int `xml:"size,attr"`
+	} `xml:"mtu"`
+
+	Link *struct {
+		State *string `xml:"state,attr"`
+		Speed *int `xml:"speed,attr"`
+	} `xml:"link"`
+}
+func (iface *Iface)Parse(dat string) error {
+	return xml.Unmarshal([]byte(dat),iface)
+}
+
+
+type Volume struct {
+	XMLName xml.Name `xml:"volume" yaml:"name,inline"`
+	Source *struct{} `xml:"source"`
+	Key string `xml:"key"`
+	Name string `xml:"name"`
+	Type string `xml:"type,attr"`
+
+  	Capacity *struct{
+		Unit string `xml:"unit,attr"`
+		Val int `xml:",chardata"`
+	} `xml:"capacity"`
+  	Physical *struct{
+		Unit string `xml:"unit,attr"`
+		Val int `xml:",chardata"`
+	} `xml:"physical"`
+  	Allocation *struct{
+		Unit string `xml:"unit,attr"`
+		Val int `xml:",chardata"`
+	} `xml:"allocation"`
+
+	Path string `xml:"target>path"`
+	Format *struct{
+		Type string `xml:"type,attr"`
+
+	}`xml:"target>format"`
+}
+func (vl *Volume)Parse(dat string) error {
+	return xml.Unmarshal([]byte(dat),vl)
+}

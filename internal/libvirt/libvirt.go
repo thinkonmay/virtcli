@@ -95,7 +95,66 @@ func (lv *Libvirt)ListGPUs() []model.GPU{
 	return ret
 }
 
-func (lv *Libvirt)CreateVM(dom model.Domain,gpus []model.GPU) (string,error) {
+func (lv *Libvirt)ListIfaces() []model.Iface{
+	dev,_,_ := lv.conn.ConnectListAllInterfaces(1,libvirt.ConnectListInterfacesActive)
+
+	
+	ret := []model.Iface{}
+	for _, nd := range dev {
+		xml,err := lv.conn.InterfaceGetXMLDesc(nd,0)
+		if err != nil {
+			continue
+		}
+		iface := &model.Iface{}
+		iface.Parse(xml)
+		ret = append(ret, *iface)
+	}
+
+	return ret
+}
+
+func (lv *Libvirt)ListDisks() []model.Volume{
+	dev,_,_ := lv.conn.ConnectListAllStoragePools(1,libvirt.ConnectListStoragePoolsActive)
+
+	
+	ret := []model.Volume{}
+	for _, nd := range dev {
+		err:= lv.conn.StoragePoolRefresh(nd,0)
+		if err != nil {
+			fmt.Printf("%s\n",err.Error())
+			continue
+		}
+		vols,_,err := lv.conn.StoragePoolListAllVolumes(nd,1,0)
+		if err != nil {
+			fmt.Printf("%s\n",err.Error())
+			continue
+		}
+
+		for _, sv := range vols {
+			xml,err := lv.conn.StorageVolGetXMLDesc(sv,0)
+			if err != nil {
+				fmt.Printf("%s\n",err.Error())
+				continue
+			}
+
+			vl := model.Volume{}
+			vl.Parse(xml)
+			if vl.Format.Type != "qcow2" {
+				continue
+			}
+
+			ret = append(ret, vl)
+		}
+	}
+
+	return ret
+}
+
+func (lv *Libvirt)CreateVM(dom model.Domain,
+							gpus []model.GPU,
+							vols []model.Volume,
+							ifs  []model.Iface,
+							) (string,error) {
 	name := fmt.Sprintf("%d", time.Now().Nanosecond())
 	dom.Name = &name
 	dom.Uuid = nil
@@ -123,6 +182,46 @@ func (lv *Libvirt)CreateVM(dom model.Domain,gpus []model.GPU) (string,error) {
 		}
 	}
 
+	dom.Disk = []model.Disk{}
+	for _,d := range vols {
+		disk := "disk"
+		dom.Disk = append(dom.Disk, model.Disk{
+			Driver: &struct{Name string "xml:\"name,attr\""; Type string "xml:\"type,attr\""}{
+				Name: "qemu",
+				Type: d.Format.Type,
+			},
+			Source: &struct{File string "xml:\"file,attr\""; Index int "xml:\"index,attr\""}{
+				File: d.Path,
+				Index: 1,
+			},
+			Target: &struct{Dev string "xml:\"dev,attr\""; Bus string "xml:\"bus,attr\""}{
+				Dev: "hda",
+				Bus: "ide",
+			},
+			Address: nil,
+			Type: &d.Type,
+			Device: &disk,
+		})
+	}
+
+	dom.Interfaces = []model.Interface{}
+	for _,d := range ifs {
+		e1000 := "e1000"
+		dom.Interfaces = append(dom.Interfaces, model.Interface{
+			Type: "direct",
+			Source: &struct{Dev string "xml:\"dev,attr\""; Mode string "xml:\"mode,attr\""}{
+				Dev: *d.Name,
+				Mode: "bridge",
+			},
+			Model: &struct{Type *string "xml:\"type,attr\""}{
+				Type: &e1000,
+			},
+			// Mac: &struct{Address *string "xml:\"address,attr\""}{
+			// 	Address: d.Mac.Address,
+			// },
+		})
+	}
+
 	xml := dom.ToString()
 	result,err := lv.conn.DomainCreateXML(xml,libvirt.DomainNone)
 	if err != nil {
@@ -131,6 +230,30 @@ func (lv *Libvirt)CreateVM(dom model.Domain,gpus []model.GPU) (string,error) {
 
 	return string(result.Name),nil
 }
+
+
+func (lv *Libvirt)DeleteVM(name string) (error) {
+	flags := libvirt.ConnectListDomainsActive | libvirt.ConnectListDomainsInactive
+	doms,_,err := lv.conn.ConnectListAllDomains(1,flags)
+	if err != nil {
+		return err
+	}
+
+	var dom *libvirt.Domain = nil
+	for _, d := range doms {
+		if d.Name == name {
+			dom = &d
+		}
+	}
+
+	if dom == nil {
+		return fmt.Errorf("unknown VM name")
+	}
+
+
+	return lv.conn.DomainShutdown(*dom)
+}
+
 
 // // stats,err := l.ConnectGetAllDomainStats(domains,0,libvirt.ConnectGetAllDomainsStatsActive)
 // // fmt.Printf("%v\n",stats)
