@@ -9,13 +9,18 @@ func CloneVolume(src string,
 				 dst string, 
 				 size int,
 				 ) (error) {
-	out,err := exec.Command("qemu-image","create","-o", 
-		fmt.Sprintf("backing_file=%s", src),
+	cmd := exec.Command("qemu-img","create",
+		"-f", "qcow2" ,
+		"-o", fmt.Sprintf("backing_file=%s", src),
 		dst,
 		fmt.Sprintf("%dG", size),
-	).Output()
+	)
+
+	fmt.Printf("cloning disk with command %v\n",cmd.Args)
+
+	out,err := cmd.Output()
 	if err != nil {
-		return err
+		return fmt.Errorf("%s : %s",err.Error(),out) 
 	}
 
 	fmt.Printf("clone img done, result: %s\n",string(out))

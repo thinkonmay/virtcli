@@ -91,6 +91,8 @@ func NewVirtDaemon(port int) *VirtDaemon{
 	}
 
 	http.HandleFunc("/deploy", 		daemon.deployVM)
+	http.HandleFunc("/start", 		daemon.startVM)
+	http.HandleFunc("/stop", 		daemon.stopVM)
 	http.HandleFunc("/delete", 		daemon.deleteVM)
 	http.HandleFunc("/status", 		daemon.statusVM)
 
@@ -98,6 +100,7 @@ func NewVirtDaemon(port int) *VirtDaemon{
 
 	http.HandleFunc("/disks", 		daemon.listDisks)
 	http.HandleFunc("/disk/clone", 	daemon.cloneDisk)
+	http.HandleFunc("/disk/delete", daemon.cloneDisk)
 
 	http.HandleFunc("/gpus", 		daemon.listGPUs)
 	http.HandleFunc("/ifaces", 		daemon.listIfaces)
@@ -123,25 +126,12 @@ func NewVirtDaemon(port int) *VirtDaemon{
 
 
 
-type VMDeployInfo struct {
 
-}
-func (inf *VMDeployInfo)ParseReq(r *http.Request) error {
-	data,err := io.ReadAll(r.Body)
-	if err != nil {
-		return err
-	}
-
-	return json.Unmarshal(data,inf)
-}
 
 
 
 
 func (daemon *VirtDaemon)deployVM(w http.ResponseWriter, r *http.Request) {
-	inf := &VMDeployInfo{}
-	inf.ParseReq(r)
-
 	body,err := io.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(500)
@@ -157,9 +147,7 @@ func (daemon *VirtDaemon)deployVM(w http.ResponseWriter, r *http.Request) {
 		GPU []model.GPU `yaml:"gpu"`
 		Volume []model.Volume`yaml:"volume"`
 		Interface []model.Iface`yaml:"interface"`
-	}{
-	}
-
+	}{ }
 
 	err = yaml.Unmarshal(body,&server)
 	if err != nil {
@@ -178,17 +166,106 @@ func (daemon *VirtDaemon)deployVM(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(400)
 		io.WriteString(w, err.Error())
+		return
 	}
 
 	w.WriteHeader(200)
 	io.WriteString(w, name)
 }
 
+func (daemon *VirtDaemon)stopVM(w http.ResponseWriter, r *http.Request) {
+	auth := &AuthHeader{}
+	auth.ParseReq(r)
+	body,err := io.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(500)
+		io.WriteString(w, err.Error())
+		return
+	}
+
+	found := false
+	doms := daemon.hypervisor.ListDomain()
+	for _, d := range doms {
+		if d.Name == string(body) && d.Status == qemu.StatusRunning {
+			found = true 
+		}
+	}
+
+	if !found {
+		w.WriteHeader(404)
+		return
+	}
+
+
+	err = daemon.libvirt.StopVM(string(body))
+	if err != nil {
+		w.WriteHeader(400)
+		io.WriteString(w, err.Error())
+		return
+	}
+
+	w.WriteHeader(200)
+	fmt.Println("stopped VM")
+}
+func (daemon *VirtDaemon)startVM(w http.ResponseWriter, r *http.Request) {
+	auth := &AuthHeader{}
+	auth.ParseReq(r)
+	body,err := io.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(500)
+		io.WriteString(w, err.Error())
+		return
+	}
+
+	found := false
+	doms := daemon.hypervisor.ListDomain()
+	for _, d := range doms {
+		if d.Name == string(body) && d.Status == qemu.StatusShutdown {
+			found = true
+		}
+	}
+	if !found {
+		w.WriteHeader(404)
+		return
+	}
+
+	w.WriteHeader(200)
+	fmt.Println("started VM")
+}
 func (daemon *VirtDaemon)deleteVM(w http.ResponseWriter, r *http.Request) {
 	auth := &AuthHeader{}
 	auth.ParseReq(r)
+	body,err := io.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(500)
+		io.WriteString(w, err.Error())
+		return
+	}
 
+	found := false
+	doms := daemon.hypervisor.ListDomain()
+	for _, d := range doms {
+		if d.Name == string(body) {
+			found = true
+		}
+	}
+	if !found {
+		w.WriteHeader(404)
+		return
+	}
+
+	err = daemon.libvirt.DeleteVM(string(body))
+	if err != nil {
+		w.WriteHeader(400)
+		io.WriteString(w, err.Error())
+		return
+	}
+
+	w.WriteHeader(200)
+	fmt.Println("deleted VM")
 }
+
+
 func (daemon *VirtDaemon)statusVM(w http.ResponseWriter, r *http.Request) {
 	auth := &AuthHeader{}
 	auth.ParseReq(r)
@@ -201,11 +278,7 @@ func (daemon *VirtDaemon)statusVM(w http.ResponseWriter, r *http.Request) {
 	}
 
 
-	server := struct{
-		ServerID string `json:"server_id"`
-	}{}
 
-	err = json.Unmarshal(body,&server)
 	if err != nil {
 		w.WriteHeader(200)
 		io.WriteString(w, err.Error())
@@ -214,7 +287,7 @@ func (daemon *VirtDaemon)statusVM(w http.ResponseWriter, r *http.Request) {
 
 	doms := daemon.hypervisor.ListDomain()
 	for _, d := range doms {
-		if d.Name == server.ServerID {
+		if d.Name == string(body) {
 			w.WriteHeader(200)
 			io.WriteString(w, d.Status.String())
 			return
@@ -288,7 +361,7 @@ func (daemon *VirtDaemon)listDisks(w http.ResponseWriter, r *http.Request) {
 
 	volume := daemon.libvirt.ListDisks()
 	result := struct{
-		Active []model.Volume `yaml:"available"`
+		Active []model.Volume `yaml:"active"`
 		Available []model.Volume `yaml:"open"`
 	}{
 		Active: volume,
@@ -331,8 +404,12 @@ func (daemon *VirtDaemon)cloneDisk(w http.ResponseWriter, r *http.Request) {
 	}
 
 
-	name := fmt.Sprintf("/disk/2TB1/%d.qcow2", time.Now().Nanosecond())
-	qemuimg.CloneVolume(in.Source.Path,name,in.Size)
+	name := fmt.Sprintf("/disk/2TB1/autogen/%d.qcow2", time.Now().Nanosecond())
+	err = qemuimg.CloneVolume(in.Source.Path,name,in.Size)
+	if err != nil {
+		w.WriteHeader(400)
+		io.WriteString(w, err.Error())
+	}
 
 	volume := daemon.libvirt.ListDisks()
 	for _,v := range volume {
@@ -356,7 +433,7 @@ func (daemon *VirtDaemon)listIfaces(w http.ResponseWriter, r *http.Request) {
 
 	ifaces := daemon.libvirt.ListIfaces()
 	result := struct{
-		Active []model.Iface `yaml:"available"`
+		Active []model.Iface `yaml:"active"`
 		Available []model.Iface `yaml:"open"`
 	}{
 		Active: ifaces,
@@ -368,9 +445,11 @@ func (daemon *VirtDaemon)listIfaces(w http.ResponseWriter, r *http.Request) {
 		add := true
 		for _, d := range qemudom {
 			for _, bd := range d.Interfaces {
-				if bd.Source.Dev == v.Name {
+				if bd.Source.Dev == v.Name ||
+				   v.Type != "ethernet" {
 					add = false
-				} else if bd.Target != nil || bd.Target.Dev == v.Name {
+				} else if bd.Target == nil {
+				} else if bd.Target.Dev == v.Name {
 					add = false
 				}
 			}
@@ -381,7 +460,6 @@ func (daemon *VirtDaemon)listIfaces(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(200)
 	data,_ := yaml.Marshal(result)
-	w.WriteHeader(200)
 	io.WriteString(w, string(data))
 }
 
@@ -434,8 +512,8 @@ func (daemon *VirtDaemon)listGPUs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data,_ := yaml.Marshal(struct{
-		Active []model.GPU `json:"available"`
-		Available []model.GPU `json:"open"`
+		Active []model.GPU `yaml:"active"`
+		Available []model.GPU `yaml:"open"`
 	}{
 		Active: gpus,
 		Available: filtered,

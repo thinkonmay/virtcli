@@ -116,6 +116,37 @@ func (lv *Libvirt)ListIfaces() []model.Iface{
 	return ret
 }
 
+func (lv *Libvirt)deleteDisks(path string) error {
+	dev,_,_ := lv.conn.ConnectListAllStoragePools(1,libvirt.ConnectListStoragePoolsActive)
+
+	for _, nd := range dev {
+		err := lv.conn.StoragePoolRefresh(nd,0)
+		if err != nil {
+			continue
+		}
+
+		vols,_,err := lv.conn.StoragePoolListAllVolumes(nd,1,0)
+		if err != nil {
+			continue
+		}
+
+		for _, sv := range vols {
+			xml,err := lv.conn.StorageVolGetXMLDesc(sv,0)
+			if err != nil {
+				fmt.Printf("%s\n",err.Error())
+				continue
+			}
+
+			vl := model.Volume{}
+			vl.Parse(xml)
+			if vl.Path == path && vl.Format.Type == "qcow2"{
+				return lv.conn.StorageVolDelete(sv,libvirt.StorageVolDeleteNormal)
+			}
+		}
+	}
+
+	return nil
+}
 func (lv *Libvirt)ListDisks() []model.Volume{
 	dev,_,_ := lv.conn.ConnectListAllStoragePools(1,libvirt.ConnectListStoragePoolsActive)
 
@@ -163,7 +194,7 @@ func (lv *Libvirt)CreateVM(vcpus int,
 		return "",fmt.Errorf("vcpus should not be odd")
 	}
 
-	file,err := os.OpenFile("../../model/data/vm.yaml",os.O_RDWR,0755)
+	file,err := os.OpenFile("./model/data/vm.yaml",os.O_RDWR,0755)
 	if err != nil {
 		panic(err)
 	}
@@ -250,14 +281,56 @@ func (lv *Libvirt)CreateVM(vcpus int,
 	dom.Cpu.Topology.Thread = 2
 
 	xml := dom.ToString()
-	result,err := lv.conn.DomainCreateXML(xml,libvirt.DomainNone)
+	result,err := lv.conn.DomainDefineXMLFlags(xml,libvirt.DomainDefineValidate)
 	if err != nil {
 		return "",err
 	}
 
+
+	lv.conn.DomainCreate(result)
 	return string(result.Name),nil
 }
 
+func (lv *Libvirt)StopVM(name string) (error) {
+	flags := libvirt.ConnectListDomainsActive | libvirt.ConnectListDomainsInactive
+	doms,_,err := lv.conn.ConnectListAllDomains(1,flags)
+	if err != nil {
+		return err
+	}
+
+	var dom *libvirt.Domain = nil
+	for _, d := range doms {
+		if d.Name == name {
+			dom = &d
+		}
+	}
+
+	if dom == nil {
+		return fmt.Errorf("unknown VM name")
+	}
+
+	return lv.conn.DomainShutdown(*dom)
+}
+func (lv *Libvirt)StartVM(name string) (error) {
+	flags := libvirt.ConnectListDomainsActive | libvirt.ConnectListDomainsInactive
+	doms,_,err := lv.conn.ConnectListAllDomains(1,flags)
+	if err != nil {
+		return err
+	}
+
+	var dom *libvirt.Domain = nil
+	for _, d := range doms {
+		if d.Name == name {
+			dom = &d
+		}
+	}
+
+	if dom == nil {
+		return fmt.Errorf("unknown VM name")
+	}
+
+	return lv.conn.DomainCreate(*dom)
+}
 
 func (lv *Libvirt)DeleteVM(name string) (error) {
 	flags := libvirt.ConnectListDomainsActive | libvirt.ConnectListDomainsInactive
@@ -277,8 +350,30 @@ func (lv *Libvirt)DeleteVM(name string) (error) {
 		return fmt.Errorf("unknown VM name")
 	}
 
+	err = lv.conn.DomainShutdown(*dom)
+	if err != nil {
+		return err
+	}
 
-	return lv.conn.DomainShutdown(*dom)
+	desc,err := lv.conn.DomainGetXMLDesc(*dom,libvirt.DomainXMLSecure)
+	if err != nil {
+		return err
+	}
+
+	dommodel := model.Domain{}
+	err = dommodel.Parse([]byte(desc))
+	if err != nil {
+		return err
+	}
+
+	for _, d := range dommodel.Disk {
+		lv.deleteDisks(d.Source.File)
+	}
+	err = lv.conn.DomainUndefine(*dom)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 
