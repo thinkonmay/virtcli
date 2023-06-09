@@ -5,13 +5,57 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
+	"strings"
 	"test/internal/libvirt"
 	qemuhypervisor "test/internal/qemu"
 	"test/model"
+	"test/nmap"
 
 	"github.com/digitalocean/go-qemu/qemu"
 	"gopkg.in/yaml.v3"
 )
+
+
+const (
+	// domain = "sontay.thinkmay.net"
+	domain = ""
+)
+
+
+func init() {
+	if domain == "" {
+		return
+	}
+
+
+	result,err := exec.Command("sudo",
+		"snap","install","certbot",
+		"--classic").Output()
+	fmt.Println("---------------------------")
+	fmt.Println("setting up certbot")
+	fmt.Println(string(result))
+	fmt.Println("---------------------------")
+	if err != nil {
+		fmt.Printf("%s\n",err.Error())
+	}
+
+
+	fmt.Println("---------------------------")
+	fmt.Println("setting up ssl certificate")
+	result,err = exec.Command("sudo",
+		"certbot","certonly", "--standalone",
+		"--preferred-challenges","http",
+		"-d",domain,
+		"-m","huyhoangdo0205@gmail.com",
+		"--agree-tos","-n").Output()
+	if err != nil {
+		fmt.Printf("%s\n",err.Error())
+	}
+
+	fmt.Println(string(result))
+	fmt.Println("---------------------------")
+}
 
 type AuthHeader struct {
 	APIKey 		*string `json:"api_key"`
@@ -54,7 +98,22 @@ func NewVirtDaemon(port int) *VirtDaemon{
 	http.HandleFunc("/ifaces", 	daemon.listIfaces)
 	http.HandleFunc("/disks", 	daemon.listDisks)
 
-	go http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d",port), nil)
+
+	go func ()  {
+		if domain == "" {
+			err := http.ListenAndServe("0.0.0.0:8090", nil)
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			certFile := fmt.Sprintf("/etc/letsencrypt/live/%s/fullchain.pem",domain)
+			keyFile  := fmt.Sprintf("/etc/letsencrypt/live/%s/privkey.pem",  domain)
+			err := http.ListenAndServeTLS("0.0.0.0:443", certFile,keyFile, nil)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}()
 	return daemon
 }
 
@@ -156,12 +215,37 @@ func (daemon *VirtDaemon)listVMs(w http.ResponseWriter, r *http.Request) {
 
 	doms    := daemon.libvirt.ListDomains()
 	qemudom := daemon.hypervisor.ListDomain()
+	iface   := daemon.libvirt.ListIfaces()
 
 	result := map[string][]model.Domain{}
+	networks := nmap.FindIPMac("192.168.1.*")
 
 	for _, d := range qemudom {
 		for _, d2 := range doms {
 			if d.Name == *d2.Name {
+				macs := []string{}
+				for _, i2 := range d2.Interfaces {
+					for _, i3 := range iface {
+						if i2.Target == nil {
+							continue
+						}
+
+						if i3.Name == i2.Target.Dev {
+							macs = append(macs, *i3.Mac.Address)
+						}
+					}
+				}
+
+				ips := []string{}
+				for k, v := range networks {
+					for _, v2 := range macs {
+						if strings.ToLower(v2) == strings.ToLower(k) {
+							ips = append(ips, v)
+						}
+					}
+				}
+
+				d2.PrivateIP = &ips
 				if result[d.Status.String()] == nil {
 					result[d.Status.String()] = []model.Domain{d2}
 				} else {
@@ -202,11 +286,9 @@ func (daemon *VirtDaemon)listDisks(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		if !add {
-			continue
+		if add {
+			result.Available = append(result.Available, v)
 		}
-
-		result.Available = append(result.Active, v)
 	}
 	w.WriteHeader(200)
 	data,_ := yaml.Marshal(result)
@@ -217,10 +299,35 @@ func (daemon *VirtDaemon)listIfaces(w http.ResponseWriter, r *http.Request) {
 	auth.ParseReq(r)
 
 
+	
 
-	daemon.libvirt.ListIfaces()
+	ifaces := daemon.libvirt.ListIfaces()
+	result := struct{
+		Active []model.Iface `yaml:"available"`
+		Available []model.Iface `yaml:"open"`
+	}{
+		Active: ifaces,
+		Available: []model.Iface {},
+	}
+
+	qemudom := daemon.libvirt.ListDomains()
+	for _, v := range ifaces {
+		add := true
+		for _, d := range qemudom {
+			for _, bd := range d.Interfaces {
+				if bd.Source.Dev == v.Name {
+					add = false
+				}
+			}
+		}
+		if add {
+			result.Available = append(result.Available, v)
+		}
+	}
 	w.WriteHeader(200)
-	// io.WriteString(w, string(data))
+	data,_ := yaml.Marshal(result)
+	w.WriteHeader(200)
+	io.WriteString(w, string(data))
 }
 
 func (daemon *VirtDaemon)listGPUs(w http.ResponseWriter, r *http.Request) {

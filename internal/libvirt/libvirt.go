@@ -210,7 +210,7 @@ func (lv *Libvirt)CreateVM(dom model.Domain,
 		dom.Interfaces = append(dom.Interfaces, model.Interface{
 			Type: "direct",
 			Source: &struct{Dev string "xml:\"dev,attr\""; Mode string "xml:\"mode,attr\""}{
-				Dev: *d.Name,
+				Dev: d.Name,
 				Mode: "bridge",
 			},
 			Model: &struct{Type *string "xml:\"type,attr\""}{

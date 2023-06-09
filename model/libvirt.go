@@ -99,6 +99,9 @@ type Interface struct {
 	Mac *struct {
 		Address *string `xml:"address,attr"`
 	} `xml:"mac"`
+	Target *struct {
+		Dev string `xml:"dev,attr"`
+	} `xml:"target"`
 	Source *struct {
 		Dev  string `xml:"dev,attr"`
 		Mode string `xml:"mode,attr"`
@@ -239,6 +242,7 @@ type Domain struct {
 
 	Name          *string  `xml:"name"`
 	Uuid          *string  `xml:"uuid"`
+	PrivateIP     *[]string  // not mapped
 
 	Memory        Memory   `xml:"memory"`
 	CurrentMemory Memory   `xml:"currentMemory"`
@@ -332,7 +336,7 @@ func (domain *GPU)Parse(data []byte) error {
 
 type Iface struct {
 	Type string `xml:"type,attr"`
-	Name *string `xml:"name,attr"`
+	Name string `xml:"name,attr"`
 
 	Source *struct {
 		Dev  *string `xml:"dev,attr"`
@@ -382,6 +386,23 @@ type Volume struct {
 		Type string `xml:"type,attr"`
 
 	}`xml:"target>format"`
+	Backing *struct{
+		Path string `xml:"path"`
+		Format struct {
+			Type string `xml:"type,attr"`
+		} `xml:"format"` 
+	// <permissions>
+    //   <mode>0600</mode>
+    //   <owner>64055</owner>
+    //   <group>108</group>
+    // </permissions>
+    // <timestamps>
+    //   <atime>1686280368.279559953</atime>
+    //   <mtime>1686101485.262474220</mtime>
+    //   <ctime>1686280368.239559316</ctime>
+    // </timestamps>
+	} `xml:"backingStore"`
+
 }
 func (vl *Volume)Parse(dat string) error {
 	return xml.Unmarshal([]byte(dat),vl)
