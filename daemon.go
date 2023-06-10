@@ -251,10 +251,12 @@ func (daemon *VirtDaemon)deleteVM(w http.ResponseWriter, r *http.Request) {
 	}
 
 	found := false
+	running := false
 	doms := daemon.hypervisor.ListDomain()
 	for _, d := range doms {
 		if d.Name == string(body) {
 			found = true
+			running = d.Status == qemu.StatusRunning
 		}
 	}
 	if !found {
@@ -262,7 +264,7 @@ func (daemon *VirtDaemon)deleteVM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = daemon.libvirt.DeleteVM(string(body))
+	err = daemon.libvirt.DeleteVM(string(body),running)
 	if err != nil {
 		w.WriteHeader(400)
 		io.WriteString(w, err.Error())
@@ -464,10 +466,27 @@ func (daemon *VirtDaemon)listIfaces(w http.ResponseWriter, r *http.Request) {
 		Available: []model.Iface {},
 	}
 
-	qemudom := daemon.libvirt.ListDomains()
+	doms := daemon.libvirt.ListDomains()
+	qemudom := daemon.hypervisor.ListDomain()
+
 	for _, v := range ifaces {
 		add := true
-		for _, d := range qemudom {
+		for _, d := range doms {
+			
+
+			ignore := false
+			for _, d2 := range qemudom {
+				if *d.Name == d2.Name && 
+					d2.Status != qemu.StatusRunning &&
+					d2.Status != qemu.StatusPaused {
+					ignore = true
+				}
+			}
+			
+			if ignore {
+				continue
+			}
+
 			for _, bd := range d.Interfaces {
 				if bd.Source.Dev == v.Name ||
 				   v.Type != "ethernet" {
@@ -481,6 +500,7 @@ func (daemon *VirtDaemon)listIfaces(w http.ResponseWriter, r *http.Request) {
 		if add {
 			result.Available = append(result.Available, v)
 		}
+		result.Active = append(result.Active, v)
 	}
 	w.WriteHeader(200)
 	data,_ := yaml.Marshal(result)
@@ -493,10 +513,18 @@ func (daemon *VirtDaemon)listGPUs(w http.ResponseWriter, r *http.Request) {
 
 
 
-	filtered := []model.GPU{}
 	gpus 	:= daemon.libvirt.ListGPUs()
+
 	domains := daemon.libvirt.ListDomains()
 	qemudom := daemon.hypervisor.ListDomain()
+
+	result := struct{
+		Active []model.GPU `yaml:"active"`
+		Available []model.GPU `yaml:"open"`
+	}{
+		Active: []model.GPU{},
+		Available: []model.GPU{},
+	}
 
 	for _, g := range gpus {
 		add := true
@@ -528,21 +556,14 @@ func (daemon *VirtDaemon)listGPUs(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if !add {
-			continue
+		if add {
+			result.Available = append(result.Available, g)
 		}
-
-		filtered = append(filtered, g)
+		result.Active = append(result.Active, g)
 	}
 
-	data,_ := yaml.Marshal(struct{
-		Active []model.GPU `yaml:"active"`
-		Available []model.GPU `yaml:"open"`
-	}{
-		Active: gpus,
-		Available: filtered,
-	})
 
 	w.WriteHeader(200)
+	data,_ := yaml.Marshal(result)
 	io.WriteString(w, string(data))
 }

@@ -334,18 +334,28 @@ func (lv *Libvirt)StopVM(name string) (error) {
 		return err
 	}
 
-	var dom *libvirt.Domain = nil
+	dom := libvirt.Domain{Name: "null"}
 	for _, d := range doms {
 		if d.Name == name {
-			dom = &d
+			dom = d
 		}
 	}
 
-	if dom == nil {
+	if dom.Name == "null" {
 		return fmt.Errorf("unknown VM name")
 	}
 
-	return lv.conn.DomainShutdown(*dom)
+	start := time.Now()
+	for {
+		err = lv.conn.DomainShutdown(dom)
+		if err == nil || time.Now().UnixMilli() - start.UnixMilli() > 10 * 1000 {
+			break
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+
+	return err
 }
 func (lv *Libvirt)StartVM(name string) (error) {
 	flags := libvirt.ConnectListDomainsActive | libvirt.ConnectListDomainsInactive
@@ -365,10 +375,20 @@ func (lv *Libvirt)StartVM(name string) (error) {
 		return fmt.Errorf("unknown VM name")
 	}
 
-	return lv.conn.DomainCreate(dom)
+	start := time.Now()
+	for {
+		err = lv.conn.DomainCreate(dom)
+		if err == nil || time.Now().UnixMilli() - start.UnixMilli() > 10 * 1000 {
+			break
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+
+	return err
 }
 
-func (lv *Libvirt)DeleteVM(name string) (error) {
+func (lv *Libvirt)DeleteVM(name string,running bool) (error) {
 	flags := libvirt.ConnectListDomainsActive | libvirt.ConnectListDomainsInactive
 	doms,_,err := lv.conn.ConnectListAllDomains(1,flags)
 	if err != nil {
@@ -386,9 +406,11 @@ func (lv *Libvirt)DeleteVM(name string) (error) {
 		return fmt.Errorf("unknown VM name")
 	}
 
-	err = lv.conn.DomainDestroy(*dom)
-	if err != nil {
-		return err
+	if running {
+		err = lv.conn.DomainDestroy(*dom)
+		if err != nil {
+			return err
+		}
 	}
 
 	desc,err := lv.conn.DomainGetXMLDesc(*dom,libvirt.DomainXMLSecure)
