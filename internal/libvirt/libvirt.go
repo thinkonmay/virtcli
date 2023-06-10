@@ -350,11 +350,7 @@ func (lv *Libvirt)DeleteVM(name string) (error) {
 		return fmt.Errorf("unknown VM name")
 	}
 
-	err = lv.conn.DomainShutdown(*dom)
-	if err != nil {
-		return err
-	}
-
+	lv.conn.DomainDestroy(*dom)
 	desc,err := lv.conn.DomainGetXMLDesc(*dom,libvirt.DomainXMLSecure)
 	if err != nil {
 		return err

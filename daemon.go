@@ -296,7 +296,6 @@ func (daemon *VirtDaemon)statusVM(w http.ResponseWriter, r *http.Request) {
 	
 
 	w.WriteHeader(404)
-	io.WriteString(w, "VM not found")
 }
 
 
@@ -361,28 +360,44 @@ func (daemon *VirtDaemon)listDisks(w http.ResponseWriter, r *http.Request) {
 
 	volume := daemon.libvirt.ListDisks()
 	result := struct{
-		Active []model.Volume `yaml:"active"`
-		Available []model.Volume `yaml:"open"`
+		Active 		[]model.Volume `yaml:"active"`
+		Available 	[]model.Volume `yaml:"open"`
 	}{
-		Active: volume,
-		Available: []model.Volume{},
+		Active		: []model.Volume{},
+		Available	: []model.Volume{},
 	}
 
-	qemudom := daemon.hypervisor.ListDomain()
-	for _, v := range volume {
+	qemudom := daemon.libvirt.ListDomains()
+	doms := daemon.hypervisor.ListDomain()
+
+	for _,vol := range volume {
 		add := true
 		for _, d := range qemudom {
-			for _, bd := range d.BlockDevs {
-				if bd.Inserted.File == v.Path {
-					add = false
-				
+			for _, bd := range d.Disk {
+				if bd.Source.File != vol.Path { // match file
+					continue
+				}
+
+				vol.Vm = *d.Name
+
+				// do not add to open if the VM accessing the disk is running
+				for _, d2 := range doms {
+					if d2.Name == *d.Name && 
+						d2.Status == qemu.StatusRunning { 
+						add = false
+					}
 				}
 			}
 		}
+		result.Active = append(result.Active, vol)
 		if add {
-			result.Available = append(result.Available, v)
+			result.Available = append(result.Available, vol)
 		}
 	}
+
+
+
+
 	w.WriteHeader(200)
 	data,_ := yaml.Marshal(result)
 	io.WriteString(w, string(data))

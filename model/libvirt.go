@@ -367,6 +367,7 @@ type Volume struct {
 	Key string `xml:"key"`
 	Name string `xml:"name"`
 	Type string `xml:"type,attr"`
+	Vm string // not mapped
 
   	Capacity *struct{
 		Unit string `xml:"unit,attr"`
