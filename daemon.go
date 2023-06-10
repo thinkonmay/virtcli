@@ -171,6 +171,7 @@ func (daemon *VirtDaemon)deployVM(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(200)
 	io.WriteString(w, name)
+	fmt.Println("deployed VM")
 }
 
 func (daemon *VirtDaemon)stopVM(w http.ResponseWriter, r *http.Request) {
@@ -226,6 +227,13 @@ func (daemon *VirtDaemon)startVM(w http.ResponseWriter, r *http.Request) {
 	}
 	if !found {
 		w.WriteHeader(404)
+		return
+	}
+
+	err = daemon.libvirt.StartVM(string(body))
+	if err != nil {
+		w.WriteHeader(400)
+		io.WriteString(w, err.Error())
 		return
 	}
 
@@ -310,7 +318,7 @@ func (daemon *VirtDaemon)listVMs(w http.ResponseWriter, r *http.Request) {
 	iface   := daemon.libvirt.ListIfaces()
 
 	result := map[string][]model.Domain{}
-	networks := nmap.FindIPMac("192.168.1.*")
+	networks := nmap.FindIPMac()
 
 	for _, d := range qemudom {
 		for _, d2 := range doms {
@@ -350,6 +358,7 @@ func (daemon *VirtDaemon)listVMs(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(200)
 	io.WriteString(w, string(data))
+	fmt.Printf("listed vms\n")
 }
 
 func (daemon *VirtDaemon)listDisks(w http.ResponseWriter, r *http.Request) {

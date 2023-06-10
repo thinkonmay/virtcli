@@ -45,3 +45,13 @@ func TestCreateVM(t *testing.T) {
 
 
 }
+func TestBackingChain(t *testing.T) {
+	lv := NewLibvirt()
+	vols := lv.ListDisks()
+	for _, v := range vols {
+		if v.Name == "990035145.qcow2" {
+			fmt.Printf("%s",backingChain(vols,v).ToString())
+			return
+		}
+	}
+}

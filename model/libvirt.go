@@ -50,6 +50,22 @@ type Features struct {
 	} `xml:"vmport"`
 }
 
+type BackingStore struct {
+	Type string `xml:"type,attr"`
+	Format *struct {
+		Type string `xml:"type,attr"`
+	} `xml:"format"`
+	Source *struct {
+		File string `xml:"file,attr"`
+	} `xml:"source"`
+	BackingStore *BackingStore `xml:"backingStore"`
+}
+func (domain *BackingStore)ToString() string {
+	data,_ := xml.MarshalIndent(domain,"","  ")
+	return string(data)
+}
+
+
 type Disk struct {
 	Driver *struct {
 		Name string `xml:"name,attr"`
@@ -70,9 +86,11 @@ type Disk struct {
 		Target     *int    `xml:"target,attr"`
 		Unit       *int    `xml:"unit,attr"`
 	} `xml:"address"`
+	BackingStore *BackingStore `xml:"backingStore"`
 
-	Type   *string `xml:"type,attr"`
-	Device *string `xml:"device,attr"`
+
+	Type   string `xml:"type,attr"`
+	Device string `xml:"device,attr"`
 }
 
 type Controller struct {
@@ -392,16 +410,6 @@ type Volume struct {
 		Format struct {
 			Type string `xml:"type,attr"`
 		} `xml:"format"` 
-	// <permissions>
-    //   <mode>0600</mode>
-    //   <owner>64055</owner>
-    //   <group>108</group>
-    // </permissions>
-    // <timestamps>
-    //   <atime>1686280368.279559953</atime>
-    //   <mtime>1686101485.262474220</mtime>
-    //   <ctime>1686280368.239559316</ctime>
-    // </timestamps>
 	} `xml:"backingStore"`
 
 }

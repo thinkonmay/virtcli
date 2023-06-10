@@ -6,7 +6,6 @@ import (
 )
 
 func TestNmap(t *testing.T) {
-	result := FindIPMac("192.168.1.*")
+	result := FindIPMac()
 	fmt.Printf("%v\n", result)
-
 }

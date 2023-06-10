@@ -184,6 +184,38 @@ func (lv *Libvirt)ListDisks() []model.Volume{
 	return ret
 }
 
+
+func backingChain(vols []model.Volume, target model.Volume) *model.BackingStore {
+	var backing *model.BackingStore = nil 
+
+	for _,v := range vols {
+		if v.Path != target.Path || v.Backing == nil {
+			continue
+		}
+
+		backingChild := model.Volume{}
+		for _, v2 := range vols {
+			if v.Backing.Path == v2.Path {
+				backingChild = v2
+			}
+		}
+
+
+		backing = &model.BackingStore{
+			Type: "file",
+			Format: &struct{Type string "xml:\"type,attr\""}{
+				Type: "qcow2",
+			},
+			Source: &struct{File string "xml:\"file,attr\""}{
+				File: v.Backing.Path,
+			},
+			BackingStore: backingChain(vols,backingChild),
+		}
+	}
+
+	return backing
+}
+
 func (lv *Libvirt)CreateVM(vcpus int,
 							ram int,
 							gpus []model.GPU,
@@ -235,9 +267,9 @@ func (lv *Libvirt)CreateVM(vcpus int,
 		}
 	}
 
+	voldb := lv.ListDisks()
 	dom.Disk = []model.Disk{}
 	for _,d := range vols {
-		disk := "disk"
 		dom.Disk = append(dom.Disk, model.Disk{
 			Driver: &struct{Name string "xml:\"name,attr\""; Type string "xml:\"type,attr\""}{
 				Name: "qemu",
@@ -252,8 +284,9 @@ func (lv *Libvirt)CreateVM(vcpus int,
 				Bus: "ide",
 			},
 			Address: nil,
-			Type: &d.Type,
-			Device: &disk,
+			Type: d.Type,
+			Device: "disk",
+			BackingStore: backingChain(voldb,d),
 		})
 	}
 
@@ -287,7 +320,10 @@ func (lv *Libvirt)CreateVM(vcpus int,
 	}
 
 
-	lv.conn.DomainCreate(result)
+	err = lv.conn.DomainCreate(result)
+	if err != nil {
+		return "",err
+	}
 	return string(result.Name),nil
 }
 
@@ -318,18 +354,18 @@ func (lv *Libvirt)StartVM(name string) (error) {
 		return err
 	}
 
-	var dom *libvirt.Domain = nil
+	dom := libvirt.Domain{Name: "null"}
 	for _, d := range doms {
 		if d.Name == name {
-			dom = &d
+			dom = d
 		}
 	}
 
-	if dom == nil {
+	if dom.Name == "null" {
 		return fmt.Errorf("unknown VM name")
 	}
 
-	return lv.conn.DomainCreate(*dom)
+	return lv.conn.DomainCreate(dom)
 }
 
 func (lv *Libvirt)DeleteVM(name string) (error) {
@@ -350,7 +386,11 @@ func (lv *Libvirt)DeleteVM(name string) (error) {
 		return fmt.Errorf("unknown VM name")
 	}
 
-	lv.conn.DomainDestroy(*dom)
+	err = lv.conn.DomainDestroy(*dom)
+	if err != nil {
+		return err
+	}
+
 	desc,err := lv.conn.DomainGetXMLDesc(*dom,libvirt.DomainXMLSecure)
 	if err != nil {
 		return err
