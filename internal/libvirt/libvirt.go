@@ -395,25 +395,25 @@ func (lv *Libvirt)DeleteVM(name string,running bool) (error) {
 		return err
 	}
 
-	var dom *libvirt.Domain = nil
+	dom := libvirt.Domain{Name: "null"}
 	for _, d := range doms {
 		if d.Name == name {
-			dom = &d
+			dom = d
 		}
 	}
 
-	if dom == nil {
+	if dom.Name == "null" {
 		return fmt.Errorf("unknown VM name")
 	}
 
 	if running {
-		err = lv.conn.DomainDestroy(*dom)
+		err = lv.StopVM(name)
 		if err != nil {
 			return err
 		}
 	}
 
-	desc,err := lv.conn.DomainGetXMLDesc(*dom,libvirt.DomainXMLSecure)
+	desc,err := lv.conn.DomainGetXMLDesc(dom,libvirt.DomainXMLSecure)
 	if err != nil {
 		return err
 	}
@@ -425,13 +425,35 @@ func (lv *Libvirt)DeleteVM(name string,running bool) (error) {
 	}
 
 	for _, d := range dommodel.Disk {
-		lv.deleteDisks(d.Source.File)
+		err := lv.deleteDisks(d.Source.File)
+		if err != nil {
+			return err
+		}
 	}
-	err = lv.conn.DomainUndefine(*dom)
-	if err != nil {
-		return err
+
+	start := time.Now().UnixMilli()
+	for {
+		lv.conn.DomainUndefine(dom)
+		doms,_,err = lv.conn.ConnectListAllDomains(1,flags)
+		if err != nil {
+			return err
+		}
+
+		found := false
+		for _, d := range doms {
+			if d.Name == name {
+				found = true
+			}
+		}
+
+		if !found {
+			return nil
+		} else if time.Now().UnixMilli() - start > 10 * time.Second.Milliseconds() {
+			return fmt.Errorf("timeout")
+		}
+
+		time.Sleep(500 * time.Millisecond)
 	}
-	return nil
 }
 
 
