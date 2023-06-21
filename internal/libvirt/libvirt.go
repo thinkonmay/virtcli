@@ -269,7 +269,12 @@ func (lv *Libvirt)CreateVM(vcpus int,
 
 	voldb := lv.ListDisks()
 	dom.Disk = []model.Disk{}
-	for _,d := range vols {
+	for i,d := range vols {
+		dev := "hda"
+		if i == 1 {
+			dev = "hdb"
+		}
+
 		dom.Disk = append(dom.Disk, model.Disk{
 			Driver: &struct{Name string "xml:\"name,attr\""; Type string "xml:\"type,attr\""}{
 				Name: "qemu",
@@ -280,7 +285,7 @@ func (lv *Libvirt)CreateVM(vcpus int,
 				Index: 1,
 			},
 			Target: &struct{Dev string "xml:\"dev,attr\""; Bus string "xml:\"bus,attr\""}{
-				Dev: "hda",
+				Dev: dev,
 				Bus: "ide",
 			},
 			Address: nil,
