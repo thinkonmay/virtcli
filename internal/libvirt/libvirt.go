@@ -20,6 +20,10 @@ type Libvirt struct {
 
 }
 
+var (
+	ifwhitelist = []string{"enp0s25","enp11s0"}
+)
+
 func NewLibvirt() *Libvirt {
 	ret := &Libvirt{}
 
@@ -102,7 +106,7 @@ func (lv *Libvirt)ListIfaces() []model.Iface{
 	dev,_,_ := lv.conn.ConnectListAllInterfaces(1,libvirt.ConnectListInterfacesActive)
 
 	
-	ret := []model.Iface{}
+	ifs := []model.Iface{}
 	for _, nd := range dev {
 		xml,err := lv.conn.InterfaceGetXMLDesc(nd,0)
 		if err != nil {
@@ -110,7 +114,21 @@ func (lv *Libvirt)ListIfaces() []model.Iface{
 		}
 		iface := &model.Iface{}
 		iface.Parse(xml)
-		ret = append(ret, *iface)
+		ifs = append(ifs, *iface)
+	}
+
+	ret := []model.Iface{}
+	for _, v := range ifs {
+		ignore := false
+		for _,v2 := range ifwhitelist {
+			if v.Name == v2 {
+				ignore = true
+			}
+		}
+		if ignore || strings.Contains(v.Name,"macvtap"){
+			continue
+		}
+		ret = append(ret, v)
 	}
 
 	return ret

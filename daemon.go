@@ -21,17 +21,17 @@ import (
 
 const (
 	domain = "sontay.thinkmay.net"
-	// domain = ""
+	certbot = false
+	
 )
 
 
 func init() {
-	if domain == "" {
+	if !certbot {
 		return
 	}
 
-
-	result,err := exec.Command("sudo",
+	result,err := exec.Command(
 		"snap","install","certbot",
 		"--classic").Output()
 	fmt.Println("---------------------------")
@@ -45,7 +45,7 @@ func init() {
 
 	fmt.Println("---------------------------")
 	fmt.Println("setting up ssl certificate")
-	result,err = exec.Command("sudo",
+	result,err = exec.Command(
 		"certbot","certonly", "--standalone",
 		"--preferred-challenges","http",
 		"-d",domain,
@@ -100,7 +100,6 @@ func NewVirtDaemon(port int) *VirtDaemon{
 
 	http.HandleFunc("/disks", 		daemon.listDisks)
 	http.HandleFunc("/disk/clone", 	daemon.cloneDisk)
-	http.HandleFunc("/disk/delete", daemon.cloneDisk)
 
 	http.HandleFunc("/gpus", 		daemon.listGPUs)
 	http.HandleFunc("/ifaces", 		daemon.listIfaces)
@@ -113,9 +112,9 @@ func NewVirtDaemon(port int) *VirtDaemon{
 				panic(err)
 			}
 		} else {
-			certFile := fmt.Sprintf("/etc/letsencrypt/live/%s/fullchain.pem",domain)
-			keyFile  := fmt.Sprintf("/etc/letsencrypt/live/%s/privkey.pem",  domain)
-			err := http.ListenAndServeTLS("0.0.0.0:443", certFile,keyFile, nil)
+			certFile := "./fullchain.pem"
+			keyFile  := "./privkey.pem"
+			err := http.ListenAndServeTLS("0.0.0.0:4433", certFile,keyFile, nil)
 			if err != nil {
 				panic(err)
 			}
@@ -462,7 +461,7 @@ func (daemon *VirtDaemon)listIfaces(w http.ResponseWriter, r *http.Request) {
 		Active []model.Iface `yaml:"active"`
 		Available []model.Iface `yaml:"open"`
 	}{
-		Active: ifaces,
+		Active: []model.Iface{},
 		Available: []model.Iface {},
 	}
 
