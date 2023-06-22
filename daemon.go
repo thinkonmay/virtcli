@@ -429,8 +429,10 @@ func (daemon *VirtDaemon)cloneDisk(w http.ResponseWriter, r *http.Request) {
 	}
 
 
-	name := fmt.Sprintf("/disk/2TB1/autogen/%d.qcow2", time.Now().Nanosecond())
-	err = qemuimg.CloneVolume(in.Source.Path,name,in.Size)
+
+	path := strings.Split(in.Source.Path,"/")
+	dest := fmt.Sprintf("%s/cloned/%d.qcow2", strings.Join(path[:len(path)-1], "/"),time.Now().Nanosecond())
+	err = qemuimg.CloneVolume(in.Source.Path,dest,in.Size)
 	if err != nil {
 		w.WriteHeader(400)
 		io.WriteString(w, err.Error())
@@ -438,7 +440,7 @@ func (daemon *VirtDaemon)cloneDisk(w http.ResponseWriter, r *http.Request) {
 
 	volume := daemon.libvirt.ListDisks()
 	for _,v := range volume {
-		if v.Path == name {
+		if v.Path == dest {
 			w.WriteHeader(200)
 			data,_ := yaml.Marshal(v)
 			io.WriteString(w, string(data))
