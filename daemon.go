@@ -340,7 +340,7 @@ func (daemon *VirtDaemon)listVMs(w http.ResponseWriter, r *http.Request) {
 				ips := []string{}
 				for k, v := range networks {
 					for _, v2 := range macs {
-						if strings.ToLower(v2) == strings.ToLower(k) {
+						if strings.EqualFold(v2,k) {
 							ips = append(ips, v)
 						}
 					}
@@ -498,7 +498,7 @@ func (daemon *VirtDaemon)listIfaces(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		if add {
+		if add && !strings.Contains(v.Name,"macvtap") {
 			result.Available = append(result.Available, v)
 		}
 		result.Active = append(result.Active, v)

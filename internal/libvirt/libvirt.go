@@ -125,7 +125,7 @@ func (lv *Libvirt)ListIfaces() []model.Iface{
 				ignore = true
 			}
 		}
-		if ignore || strings.Contains(v.Name,"macvtap"){
+		if ignore {
 			continue
 		}
 		ret = append(ret, v)
