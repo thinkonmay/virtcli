@@ -135,6 +135,10 @@ func (lv *Libvirt)ListIfaces() []model.Iface{
 }
 
 func (lv *Libvirt)deleteDisks(path string) error {
+	if strings.Contains(path, "do-not-delete") {
+		return fmt.Errorf("resource name contain do-not-delete tag")
+	}
+
 	dev,_,_ := lv.conn.ConnectListAllStoragePools(1,libvirt.ConnectListStoragePoolsActive)
 
 	for _, nd := range dev {
@@ -412,6 +416,10 @@ func (lv *Libvirt)StartVM(name string) (error) {
 }
 
 func (lv *Libvirt)DeleteVM(name string,running bool) (error) {
+	if strings.Contains(name, "do-not-delete") {
+		return fmt.Errorf("resource name contain do-not-delete tag")
+	}
+
 	flags := libvirt.ConnectListDomainsActive | libvirt.ConnectListDomainsInactive
 	doms,_,err := lv.conn.ConnectListAllDomains(1,flags)
 	if err != nil {
