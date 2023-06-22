@@ -431,7 +431,7 @@ func (daemon *VirtDaemon)cloneDisk(w http.ResponseWriter, r *http.Request) {
 
 
 	path := strings.Split(in.Source.Path,"/")
-	dest := fmt.Sprintf("%s/cloned/%d.qcow2", strings.Join(path[:len(path)-1], "/"),time.Now().Nanosecond())
+	dest := fmt.Sprintf("%s/cloned/%d.qcow2", strings.Join(path[:3], "/"),time.Now().Nanosecond())
 	err = qemuimg.CloneVolume(in.Source.Path,dest,in.Size)
 	if err != nil {
 		w.WriteHeader(400)

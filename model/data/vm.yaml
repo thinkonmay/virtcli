@@ -24,6 +24,7 @@ features:
     apic: {}
     vmport:
         state: "off"
+# TODO https://github.com/RarogCmex/Guide-Genshin-Impact-On-VM
 cpu:
     mode: host-passthrough
     check: none
@@ -182,14 +183,6 @@ graphic:
         type: address
     image:
         compression: "off"
-sound:
-    model: ich6
-    soundaddress:
-        type: pci
-        domain: "0x0000"
-        bus: "0x00"
-        slot: "0x04"
-        function: "0x0"
 video:
     model:
         ram: 65536
