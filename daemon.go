@@ -399,6 +399,7 @@ func (daemon *VirtDaemon)listDisks(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		vol.Use = libvirt.VolType(volume,vol)
 		result.Active = append(result.Active, vol)
 		if add {
 			result.Available = append(result.Available, vol)

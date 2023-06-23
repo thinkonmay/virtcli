@@ -386,6 +386,7 @@ type Volume struct {
 	Name string `xml:"name"`
 	Type string `xml:"type,attr"`
 	Vm string // not mapped
+	Use string // not mapped
 
   	Capacity *struct{
 		Unit string `xml:"unit,attr"`

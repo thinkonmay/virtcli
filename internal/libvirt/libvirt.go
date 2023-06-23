@@ -237,6 +237,33 @@ func backingChain(vols []model.Volume, target model.Volume) *model.BackingStore 
 
 	return backing
 }
+func VolType(vols []model.Volume, target model.Volume) string {
+	if  strings.Contains(strings.ToLower(target.Path),"os"){
+		return "os"
+	} else if strings.Contains(strings.ToLower(target.Path),"game") || 
+			  strings.Contains(strings.ToLower(target.Path),"app") {
+		return "app"
+	}
+
+	for _, v := range vols {
+		if v.Path != target.Path || v.Backing == nil {
+			continue
+		}
+
+		backingChild := model.Volume{}
+		for _, v2 := range vols {
+			if v.Backing.Path == v2.Path {
+				backingChild = v2
+			}
+		}
+
+
+		return VolType(vols, backingChild)
+	}
+
+	return "unknown"
+}
+
 
 func (lv *Libvirt)CreateVM(vcpus int,
 							ram int,
