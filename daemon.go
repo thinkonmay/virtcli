@@ -384,7 +384,9 @@ func (daemon *VirtDaemon)listDisks(w http.ResponseWriter, r *http.Request) {
 		add := true
 		for _, d := range qemudom {
 			for _, bd := range d.Disk {
-				if bd.Source.File != vol.Path { // match file
+				if bd.Source == nil || bd.Driver.Type != "qcow2" {
+					continue
+				} else if bd.Source.File != vol.Path { // match file
 					continue
 				}
 

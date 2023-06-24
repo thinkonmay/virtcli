@@ -175,6 +175,10 @@ func (lv *Libvirt)ListDisks() []model.Volume{
 	
 	ret := []model.Volume{}
 	for _, nd := range dev {
+		if strings.Contains(strings.ToLower(nd.Name),"ignore") {
+			continue
+		}
+
 		err:= lv.conn.StoragePoolRefresh(nd,0)
 		if err != nil {
 			fmt.Printf("%s\n",err.Error())
@@ -483,8 +487,9 @@ func (lv *Libvirt)DeleteVM(name string,running bool) (error) {
 	}
 
 	for _, d := range dommodel.Disk {
-		err := lv.deleteDisks(d.Source.File)
-		if err != nil {
+		if d.Source == nil || d.Driver.Type != "qcow2" {
+			continue
+		} else if err := lv.deleteDisks(d.Source.File); err != nil {
 			return err
 		}
 	}
