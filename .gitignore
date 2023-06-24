@@ -4,3 +4,6 @@ temp*
 main
 privkey.pem
 fullchain.pem
+virtdaemon
+.gitignore
+svc
