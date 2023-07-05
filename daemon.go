@@ -11,7 +11,6 @@ import (
 	qemuhypervisor "test/internal/qemu"
 	qemuimg "test/internal/qemu/image"
 	"test/model"
-	"test/nmap"
 	"time"
 
 	"github.com/digitalocean/go-qemu/qemu"
@@ -20,7 +19,8 @@ import (
 
 
 const (
-	domain = "sontay.thinkmay.net"
+	// domain = "sontay.thinkmay.net"
+	domain = ""
 	certbot = false
 	
 )
@@ -145,7 +145,6 @@ func (daemon *VirtDaemon)deployVM(w http.ResponseWriter, r *http.Request) {
 
 		GPU []model.GPU `yaml:"gpu"`
 		Volume []model.Volume`yaml:"volume"`
-		Interface []model.Iface`yaml:"interface"`
 	}{ }
 
 	err = yaml.Unmarshal(body,&server)
@@ -160,7 +159,6 @@ func (daemon *VirtDaemon)deployVM(w http.ResponseWriter, r *http.Request) {
 		server.RAM,
 		server.GPU,
 		server.Volume,
-		server.Interface,
 	)
 	if err != nil {
 		w.WriteHeader(400)
@@ -316,37 +314,15 @@ func (daemon *VirtDaemon)listVMs(w http.ResponseWriter, r *http.Request) {
 
 	doms    := daemon.libvirt.ListDomains()
 	qemudom := daemon.hypervisor.ListDomain()
-	iface   := daemon.libvirt.ListIfaces()
 
 	result := map[string][]model.Domain{}
-	networks := nmap.FindIPMac()
 
 	for _, d := range qemudom {
 		for _, d2 := range doms {
 			if d.Name == *d2.Name {
-				macs := []string{}
-				for _, i2 := range d2.Interfaces {
-					for _, i3 := range iface {
-						if i2.Target == nil {
-							continue
-						}
-
-						if i3.Name == i2.Target.Dev {
-							macs = append(macs, *i3.Mac.Address)
-						}
-					}
-				}
-
-				ips := []string{}
-				for k, v := range networks {
-					for _, v2 := range macs {
-						if strings.EqualFold(v2,k) {
-							ips = append(ips, v)
-						}
-					}
-				}
-
+				ips := daemon.libvirt.ListDomainIPs(d2)
 				d2.PrivateIP = &ips
+
 				if result[d.Status.String()] == nil {
 					result[d.Status.String()] = []model.Domain{d2}
 				} else {
@@ -492,7 +468,9 @@ func (daemon *VirtDaemon)listIfaces(w http.ResponseWriter, r *http.Request) {
 			}
 
 			for _, bd := range d.Interfaces {
-				if bd.Source.Dev == v.Name ||
+				if bd.Source.Dev == nil {
+					add = false
+				} else if *bd.Source.Dev == v.Name ||
 				   v.Type != "ethernet" {
 					add = false
 				} else if bd.Target == nil {

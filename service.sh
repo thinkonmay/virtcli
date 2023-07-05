@@ -1,6 +1,6 @@
 go build -o virtdaemon cmd/server/main.go
-systemctl stop virtdaemon.service
-echo "[Unit]
+sudo systemctl stop virtdaemon.service
+sudo echo "[Unit]
 Description=
 After=network.target
 
@@ -20,6 +20,6 @@ RestartSec=5s
 [Install]
 WantedBy=multi-user.target" > /lib/systemd/system/virtdaemon.service
 
-systemctl enable virtdaemon.service
-systemctl start  virtdaemon.service
-systemctl status virtdaemon.service
+sudo systemctl enable virtdaemon.service
+sudo systemctl start  virtdaemon.service
+sudo systemctl status virtdaemon.service

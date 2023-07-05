@@ -121,8 +121,9 @@ type Interface struct {
 		Dev string `xml:"dev,attr"`
 	} `xml:"target"`
 	Source *struct {
-		Dev  string `xml:"dev,attr"`
-		Mode string `xml:"mode,attr"`
+		Dev  	*string `xml:"dev,attr"`
+		Mode 	*string `xml:"mode,attr"`
+		Network *string `xml:"network,attr"`
 	} `xml:"source"`
 	Model *struct {
 		Type *string `xml:"type,attr"`

@@ -32,13 +32,13 @@ func TestCreateVM(t *testing.T) {
 	}
 
 	
-	_,err := lv.CreateVM(8,16,gpu[:1],vol[1:2],i[1:2])
+	_,err := lv.CreateVM(8,16,gpu[:1],vol[1:2])
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 	}
 
 	
-	_,err = lv.CreateVM(10,12,gpu[1:],vol[:1],i[:1])
+	_,err = lv.CreateVM(10,12,gpu[1:],vol[:1])
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 	}
@@ -52,6 +52,18 @@ func TestBackingChain(t *testing.T) {
 		if v.Name == "990035145.qcow2" {
 			fmt.Printf("%s",backingChain(vols,v).ToString())
 			return
+		}
+	}
+}
+
+func TestIP(t *testing.T) {
+	lv := NewLibvirt()
+	vols := lv.ListDomains()
+
+	for _, d := range vols {
+		if *d.Name == "vm1" {
+			result := lv.ListDomainIPs(d)
+			fmt.Println(result)
 		}
 	}
 }

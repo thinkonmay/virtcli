@@ -21,7 +21,7 @@ type Libvirt struct {
 }
 
 var (
-	ifwhitelist = []string{"enp0s25","enp11s0"}
+	ifwhitelist = []string{"enp0s25","enp11s0","enp5s0"}
 )
 
 func NewLibvirt() *Libvirt {
@@ -209,6 +209,38 @@ func (lv *Libvirt)ListDisks() []model.Volume{
 
 	return ret
 }
+func (lv *Libvirt)ListDomainIPs(dom model.Domain) []string {
+
+	flags := libvirt.ConnectListDomainsActive 
+	domains, _, err := lv.conn.ConnectListAllDomains(1, flags)
+	if err != nil {
+		return []string{}
+	}
+
+	virtdom := libvirt.Domain{Name: "unknown"}
+	for _, d := range domains {
+		if *dom.Name == d.Name {
+			virtdom = d
+		}
+	}
+
+	if virtdom.Name == "unknown" {
+		return []string{}
+	}
+
+
+	ifaces,_ := lv.conn.DomainInterfaceAddresses(virtdom,0,uint32(libvirt.DomainInterfaceAddressesSrcLease))
+
+	addr := []string{}
+	for _, di := range ifaces {
+		for _, di2 := range di.Addrs {
+			addr = append(addr, di2.Addr)
+		}
+	}
+
+
+	return addr
+}
 
 
 func backingChain(vols []model.Volume, target model.Volume) *model.BackingStore {
@@ -273,7 +305,6 @@ func (lv *Libvirt)CreateVM(vcpus int,
 							ram int,
 							gpus []model.GPU,
 							vols []model.Volume,
-							ifs  []model.Iface,
 							) (string,error) {
 	if vcpus % 2 == 1 {
 		return "",fmt.Errorf("vcpus should not be odd")
@@ -349,19 +380,18 @@ func (lv *Libvirt)CreateVM(vcpus int,
 	}
 
 	dom.Interfaces = []model.Interface{}
-	for _,d := range ifs {
-		e1000 := "e1000"
-		dom.Interfaces = append(dom.Interfaces, model.Interface{
-			Type: "direct",
-			Source: &struct{Dev string "xml:\"dev,attr\""; Mode string "xml:\"mode,attr\""}{
-				Dev: d.Name,
-				Mode: "bridge",
-			},
-			Model: &struct{Type *string "xml:\"type,attr\""}{
-				Type: &e1000,
-			},
-		})
-	}
+
+	e1000 := "e1000"
+	network := "network"
+	dom.Interfaces = append(dom.Interfaces, model.Interface{
+		Type: "network",
+		Source: &struct{Dev *string "xml:\"dev,attr\""; Mode *string "xml:\"mode,attr\""; Network *string "xml:\"network,attr\""}{
+			Network: &network,
+		},
+		Model: &struct{Type *string "xml:\"type,attr\""}{
+			Type: &e1000,
+		},
+	})
 
 	dom.Memory.Value        = ram * 1024 * 1024
 	dom.CurrentMemory.Value = ram * 1024 * 1024
