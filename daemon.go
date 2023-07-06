@@ -214,10 +214,22 @@ func (daemon *VirtDaemon)startVM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	server := struct{
+		ID   string `yaml:"id"`
+		GPU []model.GPU `yaml:"gpu"`
+	}{}
+
+	err = yaml.Unmarshal(body,&server)
+	if err != nil {
+		w.WriteHeader(400)
+		io.WriteString(w, "invalid yaml " + err.Error())
+		return
+	}
+
 	found := false
 	doms := daemon.hypervisor.ListDomain()
 	for _, d := range doms {
-		if d.Name == string(body) && d.Status == qemu.StatusShutdown {
+		if d.Name == string(server.ID) && d.Status == qemu.StatusShutdown {
 			found = true
 		}
 	}
@@ -226,7 +238,8 @@ func (daemon *VirtDaemon)startVM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = daemon.libvirt.StartVM(string(body))
+
+	err = daemon.libvirt.StartVM(server.ID,server.GPU)
 	if err != nil {
 		w.WriteHeader(400)
 		io.WriteString(w, err.Error())

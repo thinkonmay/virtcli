@@ -155,6 +155,10 @@ type HostDev struct {
 		Function string `xml:"function,attr"`
 	} `xml:"address"`
 }
+func (domain *HostDev)ToString() string {
+	data,_ := xml.MarshalIndent(domain,"","  ")
+	return string(data)
+}
 
 type Emulator struct {
 	Value *string `xml:",chardata"`

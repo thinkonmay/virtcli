@@ -445,27 +445,67 @@ func (lv *Libvirt)StopVM(name string) (error) {
 
 	return err
 }
-func (lv *Libvirt)StartVM(name string) (error) {
+func (lv *Libvirt)StartVM(name string,
+						  gpus []model.GPU) (error) {
 	flags := libvirt.ConnectListDomainsActive | libvirt.ConnectListDomainsInactive
 	doms,_,err := lv.conn.ConnectListAllDomains(1,flags)
 	if err != nil {
 		return err
 	}
 
-	dom := libvirt.Domain{Name: "null"}
+	model_domain := model.Domain{}
+	old_dom := libvirt.Domain{Name: "null"}
+
+	models := lv.ListDomains()
 	for _, d := range doms {
 		if d.Name == name {
-			dom = d
+			old_dom = d
+			for _, d2 := range models {
+				if d.Name == *d2.Name {
+					model_domain = d2
+				}
+			}
 		}
 	}
 
-	if dom.Name == "null" {
+	if old_dom.Name == "null" {
 		return fmt.Errorf("unknown VM name")
+	}
+
+	Attach := []model.HostDev{}
+	for _, nd := range gpus {
+		for _, v := range nd.Capability.IommuGroup.Address {
+			Attach = append(Attach, model.HostDev{
+				Mode: "subsystem",
+				Type: "pci",
+				Managed: "yes",
+				SourceAddress: &struct{
+					Domain string "xml:\"domain,attr\""; 
+					Bus string "xml:\"bus,attr\""; 
+					Slot string "xml:\"slot,attr\""; 
+					Function string "xml:\"function,attr\"";
+				}{
+					Domain : v.Domain,
+					Bus : v.Bus,
+					Slot : v.Slot,
+					Function : v.Function,
+				},
+			})
+		}
+	}
+
+	lv.conn.DomainUndefine(old_dom)
+
+	model_domain.Uuid = nil
+	model_domain.Hostdevs = Attach
+	new_dom,err := lv.conn.DomainDefineXML(model_domain.ToString())
+	if err != nil {
+		return err
 	}
 
 	start := time.Now()
 	for {
-		err = lv.conn.DomainCreate(dom)
+		err = lv.conn.DomainCreate(new_dom)
 		if err == nil || time.Now().UnixMilli() - start.UnixMilli() > 10 * 1000 {
 			break
 		}
