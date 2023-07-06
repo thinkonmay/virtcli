@@ -19,8 +19,7 @@ import (
 
 
 const (
-	// domain = "sontay.thinkmay.net"
-	domain = ""
+	domain = "sontay.thinkmay.net"
 	certbot = false
 	
 )
