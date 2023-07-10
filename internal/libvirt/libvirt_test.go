@@ -11,7 +11,6 @@ func TestCreateVM(t *testing.T) {
 
 	gpu 	:= lv.ListGPUs()
 	vols 	:= lv.ListDisks()
-	ifs 	:= lv.ListIfaces()
 
 	vol := []model.Volume{}
 	for _, v := range vols {
@@ -22,16 +21,6 @@ func TestCreateVM(t *testing.T) {
 		}
 	}
 
-	i := []model.Iface{}
-	for _, v := range ifs {
-		if v.Name == "enp0s25" ||
-		   v.Name == "enp5s0" {
-			continue
-		}
-		i = append(i, v)
-	}
-
-	
 	_,err := lv.CreateVM(8,16,gpu[:1],vol[1:2])
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())

@@ -96,12 +96,11 @@ func NewVirtDaemon(port int) *VirtDaemon{
 	http.HandleFunc("/status", 		daemon.statusVM)
 
 	http.HandleFunc("/vms", 		daemon.listVMs)
+	http.HandleFunc("/gpus", 		daemon.listGPUs)
 
 	http.HandleFunc("/disks", 		daemon.listDisks)
 	http.HandleFunc("/disk/clone", 	daemon.cloneDisk)
 
-	http.HandleFunc("/gpus", 		daemon.listGPUs)
-	http.HandleFunc("/ifaces", 		daemon.listIfaces)
 
 
 	go func ()  {
@@ -441,64 +440,6 @@ func (daemon *VirtDaemon)cloneDisk(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(400)
 	io.WriteString(w, "failed")
-}
-func (daemon *VirtDaemon)listIfaces(w http.ResponseWriter, r *http.Request) {
-	auth := &AuthHeader{}
-	auth.ParseReq(r)
-
-
-	
-
-	ifaces := daemon.libvirt.ListIfaces()
-	result := struct{
-		Active []model.Iface `yaml:"active"`
-		Available []model.Iface `yaml:"open"`
-	}{
-		Active: []model.Iface{},
-		Available: []model.Iface {},
-	}
-
-	doms := daemon.libvirt.ListDomains()
-	qemudom := daemon.hypervisor.ListDomain()
-
-	for _, v := range ifaces {
-		add := true
-		for _, d := range doms {
-			
-
-			ignore := false
-			for _, d2 := range qemudom {
-				if *d.Name == d2.Name && 
-					d2.Status != qemu.StatusRunning &&
-					d2.Status != qemu.StatusPaused {
-					ignore = true
-				}
-			}
-			
-			if ignore {
-				continue
-			}
-
-			for _, bd := range d.Interfaces {
-				if bd.Source.Dev == nil {
-					add = false
-				} else if *bd.Source.Dev == v.Name ||
-				   v.Type != "ethernet" {
-					add = false
-				} else if bd.Target == nil {
-				} else if bd.Target.Dev == v.Name {
-					add = false
-				}
-			}
-		}
-		if add && !strings.Contains(v.Name,"macvtap") {
-			result.Available = append(result.Available, v)
-		}
-		result.Active = append(result.Active, v)
-	}
-	w.WriteHeader(200)
-	data,_ := yaml.Marshal(result)
-	io.WriteString(w, string(data))
 }
 
 func (daemon *VirtDaemon)listGPUs(w http.ResponseWriter, r *http.Request) {

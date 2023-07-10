@@ -7,7 +7,9 @@ import (
 	"net"
 	"os"
 	"strings"
+	"test/internal/network/ovs"
 	"test/model"
+	"test/utils/arp"
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
@@ -18,6 +20,7 @@ type Libvirt struct {
 	Version string 
 	conn *libvirt.Libvirt
 
+	vswitch *ovs.OpenVSwitch
 }
 
 var (
@@ -25,7 +28,9 @@ var (
 )
 
 func NewLibvirt() *Libvirt {
-	ret := &Libvirt{}
+	ret := &Libvirt{
+		vswitch: ovs.NewOVS(),
+	}
 
 	c, err := net.DialTimeout("unix", "/var/run/libvirt/libvirt-sock", 2*time.Second)
 	if err != nil {
@@ -102,37 +107,6 @@ func (lv *Libvirt)ListGPUs() []model.GPU{
 	return ret
 }
 
-func (lv *Libvirt)ListIfaces() []model.Iface{
-	dev,_,_ := lv.conn.ConnectListAllInterfaces(1,libvirt.ConnectListInterfacesActive)
-
-	
-	ifs := []model.Iface{}
-	for _, nd := range dev {
-		xml,err := lv.conn.InterfaceGetXMLDesc(nd,0)
-		if err != nil {
-			continue
-		}
-		iface := &model.Iface{}
-		iface.Parse(xml)
-		ifs = append(ifs, *iface)
-	}
-
-	ret := []model.Iface{}
-	for _, v := range ifs {
-		ignore := false
-		for _,v2 := range ifwhitelist {
-			if v.Name == v2 {
-				ignore = true
-			}
-		}
-		if ignore {
-			continue
-		}
-		ret = append(ret, v)
-	}
-
-	return ret
-}
 
 func (lv *Libvirt)deleteDisks(path string) error {
 	if strings.Contains(path, "do-not-delete") {
@@ -209,7 +183,9 @@ func (lv *Libvirt)ListDisks() []model.Volume{
 
 	return ret
 }
-func (lv *Libvirt)ListDomainIPs(dom model.Domain) []string {
+
+
+func (lv *Libvirt)ListDomainIPs(dom model.Domain) []string { // TODO
 
 	flags := libvirt.ConnectListDomainsActive 
 	domains, _, err := lv.conn.ConnectListAllDomains(1, flags)
@@ -229,17 +205,19 @@ func (lv *Libvirt)ListDomainIPs(dom model.Domain) []string {
 	}
 
 
-	ifaces,_ := lv.conn.DomainInterfaceAddresses(virtdom,0,uint32(libvirt.DomainInterfaceAddressesSrcLease))
+	// ifaces,_ := lv.conn.DomainInterfaceAddresses(virtdom,0,uint32(libvirt.DomainInterfaceAddressesSrcLease))
 
-	addr := []string{}
-	for _, di := range ifaces {
-		for _, di2 := range di.Addrs {
-			addr = append(addr, di2.Addr)
-		}
-	}
+	// addr := []string{}
+	// for _, di := range ifaces {
+	// 	for _, di2 := range di.Addrs {
+	// 		addr = append(addr, di2.Addr)
+	// 	}
+	// }
 
 
-	return addr
+
+
+	return arp.FindDomainIPs(dom)
 }
 
 
@@ -380,18 +358,12 @@ func (lv *Libvirt)CreateVM(vcpus int,
 	}
 
 	dom.Interfaces = []model.Interface{}
+	iface,err := lv.vswitch.CreateInterface()
+	if err != nil {
+		return "", err
+	}
 
-	e1000 := "e1000"
-	network := "network"
-	dom.Interfaces = append(dom.Interfaces, model.Interface{
-		Type: "network",
-		Source: &struct{Dev *string "xml:\"dev,attr\""; Mode *string "xml:\"mode,attr\""; Network *string "xml:\"network,attr\""}{
-			Network: &network,
-		},
-		Model: &struct{Type *string "xml:\"type,attr\""}{
-			Type: &e1000,
-		},
-	})
+	dom.Interfaces = append(dom.Interfaces, *iface)
 
 	dom.Memory.Value        = ram * 1024 * 1024
 	dom.CurrentMemory.Value = ram * 1024 * 1024
@@ -494,10 +466,20 @@ func (lv *Libvirt)StartVM(name string,
 		}
 	}
 
+	model_domain.Interfaces = []model.Interface{}
 	lv.conn.DomainUndefine(old_dom)
 
 	model_domain.Uuid = nil
 	model_domain.Hostdevs = Attach
+
+	model_domain.Interfaces = []model.Interface{}
+	iface,err := lv.vswitch.CreateInterface()
+	if err != nil {
+		return err
+	}
+	model_domain.Interfaces = append(model_domain.Interfaces, *iface)
+
+
 	new_dom,err := lv.conn.DomainDefineXML(model_domain.ToString())
 	if err != nil {
 		return err

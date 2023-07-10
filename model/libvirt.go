@@ -111,30 +111,37 @@ type Controller struct {
 	} `xml:"address"`
 }
 
+type InterfaceSource struct {
+	Dev  	*string `xml:"dev,attr"`
+	Mode 	*string `xml:"mode,attr"`
+	Network *string `xml:"network,attr"`
+	Bridge  *string `xml:"bridge,attr"`
+}
+type InterfaceAddr struct {
+	Type     *string `xml:"type,attr"`
+	Domain   *string `xml:"domain,attr"`
+	Bus      *string `xml:"bus,attr"`
+	Slot     *string `xml:"slot,attr"`
+	Function *string `xml:"function,attr"`
+}
 type Interface struct {
 	Type string `xml:"type,attr"`
 	Name *string `xml:"name,attr"`
+	VirtualPort *struct {
+		Type string `xml:"type,attr"`
+	} `xml:"virtualport"`
+
 	Mac *struct {
 		Address *string `xml:"address,attr"`
 	} `xml:"mac"`
 	Target *struct {
 		Dev string `xml:"dev,attr"`
 	} `xml:"target"`
-	Source *struct {
-		Dev  	*string `xml:"dev,attr"`
-		Mode 	*string `xml:"mode,attr"`
-		Network *string `xml:"network,attr"`
-	} `xml:"source"`
+	Source *InterfaceSource `xml:"source"`
 	Model *struct {
 		Type *string `xml:"type,attr"`
 	} `xml:"model"`
-	Address *struct {
-		Type     *string `xml:"type,attr"`
-		Domain   *string `xml:"domain,attr"`
-		Bus      *string `xml:"bus,attr"`
-		Slot     *string `xml:"slot,attr"`
-		Function *string `xml:"function,attr"`
-	} `xml:"address"`
+	Address *InterfaceAddr `xml:"address"`
 }
 
 type HostDev struct {

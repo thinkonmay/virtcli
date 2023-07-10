@@ -13,11 +13,10 @@ var database = map[string]string{}
 var mut = &sync.Mutex{}
 
 func init() {
-	findIPMac("192.168.1.*")
 	go func ()  {
 		for {
-			time.Sleep(5 * time.Second)
 			findIPMac("192.168.1.*")
+			time.Sleep(5 * time.Second)
 		}
 	}()
 }
