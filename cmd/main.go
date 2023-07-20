@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
+	"os"
 	virtdaemon "test"
 
 	"gopkg.in/yaml.v3"
 )
 
 func main() {
-	result,err := virtdaemon.NewVirtDaemon("/vms",[]byte(""))
+	result,err := virtdaemon.NewVirtDaemon(os.Args[1],[]byte(""))
 	if err != nil {
 		return
 	}
