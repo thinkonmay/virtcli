@@ -7,3 +7,4 @@ fullchain.pem
 virtdaemon
 .gitignore
 svc
+cli

@@ -20,7 +20,7 @@ func FindDomainIPs(dom model.Domain) []string {
 	}
 
 
-	database,err := getIPIface()
+	database,err := getIPIface("192.168.1")
 	if err != nil {
 		return []string{}
 	}
@@ -35,7 +35,7 @@ func FindDomainIPs(dom model.Domain) []string {
 
 	return ips
 }
-func getIPIface() (ret map[string]string, err error) { // TODO
+func getIPIface(prefix string) (ret map[string]string, err error) { // TODO
 	stop := false
 	ret = map[string]string{}
 	mut := &sync.Mutex{}
@@ -71,8 +71,17 @@ func getIPIface() (ret map[string]string, err error) { // TODO
 				if err != nil {
 					continue
 				}
-				if pkt.Operation != arp.OperationReply || 
-				  !strings.Contains(addrs[0].String(), pkt.TargetIP.String()) {
+
+
+				pass := false					
+				for _, a := range addrs {
+					if pkt.Operation == arp.OperationReply  &&
+					   strings.Contains(a.String(), pkt.TargetIP.String()) {
+						pass = true
+					}
+				}
+
+				if !pass {
 					continue
 				}
 
@@ -84,7 +93,7 @@ func getIPIface() (ret map[string]string, err error) { // TODO
 		}()
 
 		for i := 0; i < 100; i++ {
-			addr,err := netip.ParseAddr(fmt.Sprintf("192.168.1.%d",i))
+			addr,err := netip.ParseAddr(fmt.Sprintf("%s.%d",prefix,i))
 			if err != nil {
 				continue
 			}
@@ -95,7 +104,7 @@ func getIPIface() (ret map[string]string, err error) { // TODO
 		}
 	}
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(100 * time.Millisecond)
 	stop = true
 	return 
 }

@@ -204,19 +204,6 @@ func (lv *Libvirt)ListDomainIPs(dom model.Domain) []string { // TODO
 		return []string{}
 	}
 
-
-	// ifaces,_ := lv.conn.DomainInterfaceAddresses(virtdom,0,uint32(libvirt.DomainInterfaceAddressesSrcLease))
-
-	// addr := []string{}
-	// for _, di := range ifaces {
-	// 	for _, di2 := range di.Addrs {
-	// 		addr = append(addr, di2.Addr)
-	// 	}
-	// }
-
-
-
-
 	return arp.FindDomainIPs(dom)
 }
 

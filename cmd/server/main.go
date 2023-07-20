@@ -1,8 +1,22 @@
 package main
 
-import virtdaemon "test"
+import (
+	"fmt"
+	virtdaemon "test"
+
+	"gopkg.in/yaml.v3"
+)
 
 func main() {
-	virtdaemon.NewVirtDaemon(8090)
-	<-make(chan bool)
+	result,err := virtdaemon.NewVirtDaemon("/vms",[]byte(""))
+	if err != nil {
+		return
+	}
+
+	data,err := yaml.Marshal(result)
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("%v\n", string(data))
 }

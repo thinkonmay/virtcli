@@ -1,11 +1,7 @@
 package virtdaemon
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"os/exec"
 	"strings"
 	"test/internal/libvirt"
 	qemuhypervisor "test/internal/qemu"
@@ -18,107 +14,41 @@ import (
 )
 
 
-const (
-	domain = "sontay.thinkmay.net"
-	certbot = false
-	
-)
-
-
-func init() {
-	if !certbot {
-		return
-	}
-
-	result,err := exec.Command(
-		"snap","install","certbot",
-		"--classic").Output()
-	fmt.Println("---------------------------")
-	fmt.Println("setting up certbot")
-	fmt.Println(string(result))
-	fmt.Println("---------------------------")
-	if err != nil {
-		fmt.Printf("%s\n",err.Error())
-	}
-
-
-	fmt.Println("---------------------------")
-	fmt.Println("setting up ssl certificate")
-	result,err = exec.Command(
-		"certbot","certonly", "--standalone",
-		"--preferred-challenges","http",
-		"-d",domain,
-		"-m","huyhoangdo0205@gmail.com",
-		"--agree-tos","-n").Output()
-	if err != nil {
-		fmt.Printf("%s\n",err.Error())
-	}
-
-	fmt.Println(string(result))
-	fmt.Println("---------------------------")
-}
-
-type AuthHeader struct {
-	APIKey 		*string `json:"api_key"`
-	APIToken 	*string `json:"api_token"`
-}
-
-func (auth *AuthHeader)ParseReq(r *http.Request) {
-	headers := map[string]string{}
-	for k, v := range r.Header {
-		headers[k] = v[0]
-	}
-
-	data,_ := json.Marshal(headers)
-	json.Unmarshal(data, auth)
-}
-
 
 type VirtDaemon struct {
-	APIKeys map[string]string
 	hypervisor *qemuhypervisor.QEMUHypervisor
 	libvirt *libvirt.Libvirt
 }
 
-func NewVirtDaemon(port int) *VirtDaemon{
+func NewVirtDaemon(verb string, data []byte) (any,error){
 	daemon := &VirtDaemon{
-		APIKeys: map[string]string{
-			"iuvgb2qg7rwyashbvkaiueg2v3uqfwaivusgfvy" : "972gavszdufg8oywfabsdzvoaiwgefb",
-		},
 		hypervisor: qemuhypervisor.NewQEMUHypervisor(),
 		libvirt: libvirt.NewLibvirt(),
 	}
 
-	http.HandleFunc("/deploy", 		daemon.deployVM)
-	http.HandleFunc("/start", 		daemon.startVM)
-	http.HandleFunc("/stop", 		daemon.stopVM)
-	http.HandleFunc("/delete", 		daemon.deleteVM)
-	http.HandleFunc("/status", 		daemon.statusVM)
+	var fun func(data []byte)(any,error)
+	switch verb {
+	case "/deploy": 		
+		fun = daemon.deployVM
+	case "/start": 		
+		fun = daemon.startVM
+	case "/stop": 		
+		fun = daemon.stopVM
+	case "/delete": 		
+		fun = daemon.deleteVM
+	case "/status": 		
+		fun = daemon.statusVM
+	case "/vms": 		
+		fun = daemon.listVMs
+	case "/gpus": 		
+		fun = daemon.listGPUs
+	case "/disks": 		
+		fun = daemon.listDisks
+	case "/disk/clone": 	
+		fun = daemon.cloneDisk
+	}
 
-	http.HandleFunc("/vms", 		daemon.listVMs)
-	http.HandleFunc("/gpus", 		daemon.listGPUs)
-
-	http.HandleFunc("/disks", 		daemon.listDisks)
-	http.HandleFunc("/disk/clone", 	daemon.cloneDisk)
-
-
-
-	go func ()  {
-		if domain == "" {
-			err := http.ListenAndServe("0.0.0.0:8090", nil)
-			if err != nil {
-				panic(err)
-			}
-		} else {
-			certFile := "./fullchain.pem"
-			keyFile  := "./privkey.pem"
-			err := http.ListenAndServeTLS("0.0.0.0:4433", certFile,keyFile, nil)
-			if err != nil {
-				panic(err)
-			}
-		}
-	}()
-	return daemon
+	return fun(data)
 }
 
 
@@ -128,135 +58,103 @@ func NewVirtDaemon(port int) *VirtDaemon{
 
 
 
-func (daemon *VirtDaemon)deployVM(w http.ResponseWriter, r *http.Request) {
-	body,err := io.ReadAll(r.Body)
-	if err != nil {
-		w.WriteHeader(500)
-		io.WriteString(w, err.Error())
-		return
-	}
-
-
+func (daemon *VirtDaemon)deployVM(body []byte) (any, error) {
 	server := struct{
 		VCPU int `yaml:"vcpus"`
 		RAM  int `yaml:"ram"`
 
 		GPU []model.GPU `yaml:"gpu"`
 		Volume []model.Volume`yaml:"volume"`
-	}{ }
+	}{}
 
-	err = yaml.Unmarshal(body,&server)
+	err := yaml.Unmarshal(body,&server)
 	if err != nil {
-		w.WriteHeader(400)
-		io.WriteString(w, "invalid yaml")
-		return
+		return nil,err
 	}
-
 	name,err := daemon.libvirt.CreateVM(
 		server.VCPU,
 		server.RAM,
 		server.GPU,
 		server.Volume,
 	)
-	if err != nil {
-		w.WriteHeader(400)
-		io.WriteString(w, err.Error())
-		return
-	}
 
-	w.WriteHeader(200)
-	io.WriteString(w, name)
-	fmt.Println("deployed VM")
+	return struct {
+		Name string
+	} {
+		Name: name,
+	},err
 }
 
-func (daemon *VirtDaemon)stopVM(w http.ResponseWriter, r *http.Request) {
-	auth := &AuthHeader{}
-	auth.ParseReq(r)
-	body,err := io.ReadAll(r.Body)
+func (daemon *VirtDaemon)stopVM(body []byte) (any, error) {
+	server := struct{
+		Name string `yaml:"name"`
+	}{}
+
+	err := yaml.Unmarshal(body,&server)
 	if err != nil {
-		w.WriteHeader(500)
-		io.WriteString(w, err.Error())
-		return
+		return nil,err
 	}
+
 
 	found := false
 	doms := daemon.hypervisor.ListDomain()
 	for _, d := range doms {
-		if d.Name == string(body) && d.Status == qemu.StatusRunning {
+		if d.Name == string(server.Name) && 
+		   d.Status == qemu.StatusRunning {
 			found = true 
 		}
 	}
 
 	if !found {
-		w.WriteHeader(404)
-		return
+		return nil,fmt.Errorf("vm not found")
 	}
 
 
-	err = daemon.libvirt.StopVM(string(body))
-	if err != nil {
-		w.WriteHeader(400)
-		io.WriteString(w, err.Error())
-		return
-	}
-
-	w.WriteHeader(200)
-	fmt.Println("stopped VM")
+	err = daemon.libvirt.StopVM(string(server.Name))
+	return fmt.Sprintf("VM %s stopped",server.Name),err
 }
-func (daemon *VirtDaemon)startVM(w http.ResponseWriter, r *http.Request) {
-	auth := &AuthHeader{}
-	auth.ParseReq(r)
-	body,err := io.ReadAll(r.Body)
-	if err != nil {
-		w.WriteHeader(500)
-		io.WriteString(w, err.Error())
-		return
-	}
 
+
+func (daemon *VirtDaemon)startVM(body []byte) (any, error) {
 	server := struct{
-		ID   string `yaml:"id"`
+		Name string `yaml:"name"`
 		GPU []model.GPU `yaml:"gpu"`
 	}{}
 
-	err = yaml.Unmarshal(body,&server)
+	err := yaml.Unmarshal(body,&server)
 	if err != nil {
-		w.WriteHeader(400)
-		io.WriteString(w, "invalid yaml " + err.Error())
-		return
+		return nil,err
 	}
+
 
 	found := false
 	doms := daemon.hypervisor.ListDomain()
 	for _, d := range doms {
-		if d.Name == string(server.ID) && d.Status == qemu.StatusShutdown {
+		if d.Name == string(server.Name) && 
+		   d.Status == qemu.StatusShutdown {
 			found = true
 		}
 	}
 	if !found {
-		w.WriteHeader(404)
-		return
+		return nil,fmt.Errorf("vm not found")
 	}
 
 
-	err = daemon.libvirt.StartVM(server.ID,server.GPU)
-	if err != nil {
-		w.WriteHeader(400)
-		io.WriteString(w, err.Error())
-		return
-	}
-
-	w.WriteHeader(200)
-	fmt.Println("started VM")
+	err = daemon.libvirt.StartVM(server.Name,server.GPU)
+	return fmt.Sprintf("VM %s stopped",server.Name),err
 }
-func (daemon *VirtDaemon)deleteVM(w http.ResponseWriter, r *http.Request) {
-	auth := &AuthHeader{}
-	auth.ParseReq(r)
-	body,err := io.ReadAll(r.Body)
+
+
+func (daemon *VirtDaemon)deleteVM(body []byte) (any, error) {
+	server := struct{
+		Name string `yaml:"name"`
+	}{}
+
+	err := yaml.Unmarshal(body,&server)
 	if err != nil {
-		w.WriteHeader(500)
-		io.WriteString(w, err.Error())
-		return
+		return nil,err
 	}
+
 
 	found := false
 	running := false
@@ -268,61 +166,41 @@ func (daemon *VirtDaemon)deleteVM(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !found {
-		w.WriteHeader(404)
-		return
+		return nil,fmt.Errorf("vm not found")
 	}
+
 
 	err = daemon.libvirt.DeleteVM(string(body),running)
-	if err != nil {
-		w.WriteHeader(400)
-		io.WriteString(w, err.Error())
-		return
-	}
-
-	w.WriteHeader(200)
-	fmt.Println("deleted VM")
+	return fmt.Sprintf("VM %s deleted",server.Name),err
 }
 
 
-func (daemon *VirtDaemon)statusVM(w http.ResponseWriter, r *http.Request) {
-	auth := &AuthHeader{}
-	auth.ParseReq(r)
+func (daemon *VirtDaemon)statusVM(body []byte) (any, error) {
+	server := struct{
+		Name string `yaml:"name"`
+	}{}
 
-	body,err := io.ReadAll(r.Body)
+	err := yaml.Unmarshal(body,&server)
 	if err != nil {
-		w.WriteHeader(500)
-		io.WriteString(w, err.Error())
-		return
-	}
-
-
-
-	if err != nil {
-		w.WriteHeader(200)
-		io.WriteString(w, err.Error())
-		return
+		return nil,err
 	}
 
 	doms := daemon.hypervisor.ListDomain()
 	for _, d := range doms {
-		if d.Name == string(body) {
-			w.WriteHeader(200)
-			io.WriteString(w, d.Status.String())
-			return
+		if d.Name == string(server.Name) {
+			return struct{
+				Status string
+			}{
+				Status: d.Status.String(),
+			},nil
 		}
 	}
-	
 
-	w.WriteHeader(404)
+	return nil,fmt.Errorf("vm not found")
 }
 
 
-func (daemon *VirtDaemon)listVMs(w http.ResponseWriter, r *http.Request) {
-	auth := &AuthHeader{}
-	auth.ParseReq(r)
-
-
-
+func (daemon *VirtDaemon)listVMs(data []byte) (any, error) {
 	doms    := daemon.libvirt.ListDomains()
 	qemudom := daemon.hypervisor.ListDomain()
 
@@ -331,9 +209,6 @@ func (daemon *VirtDaemon)listVMs(w http.ResponseWriter, r *http.Request) {
 	for _, d := range qemudom {
 		for _, d2 := range doms {
 			if d.Name == *d2.Name {
-				ips := daemon.libvirt.ListDomainIPs(d2)
-				d2.PrivateIP = &ips
-
 				if result[d.Status.String()] == nil {
 					result[d.Status.String()] = []model.Domain{d2}
 				} else {
@@ -342,18 +217,16 @@ func (daemon *VirtDaemon)listVMs(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	data,_ := yaml.Marshal(result)
 
-	w.WriteHeader(200)
-	io.WriteString(w, string(data))
-	fmt.Printf("listed vms\n")
+	for i, d := range result["StatusRunning"] {
+		ips := daemon.libvirt.ListDomainIPs(d)
+		result["StatusRunning"][i].PrivateIP = &ips
+	}
+
+	return result,nil
 }
 
-func (daemon *VirtDaemon)listDisks(w http.ResponseWriter, r *http.Request) {
-	auth := &AuthHeader{}
-	auth.ParseReq(r)
-
-
+func (daemon *VirtDaemon)listDisks(data []byte) (any,error) {
 
 	volume := daemon.libvirt.ListDisks()
 	result := struct{
@@ -398,24 +271,19 @@ func (daemon *VirtDaemon)listDisks(w http.ResponseWriter, r *http.Request) {
 
 
 
-	w.WriteHeader(200)
-	data,_ := yaml.Marshal(result)
-	io.WriteString(w, string(data))
+	return result,nil
 }
-func (daemon *VirtDaemon)cloneDisk(w http.ResponseWriter, r *http.Request) {
-	auth := &AuthHeader{}
-	auth.ParseReq(r)
 
 
-	body,_ := io.ReadAll(r.Body)
+func (daemon *VirtDaemon)cloneDisk(body []byte) (any, error){
 	in := struct{ 
 		Source model.Volume `yaml:"source"` 
 		Size int `yaml:"size"` 
 	}{}
+
 	err := yaml.Unmarshal(body,&in)
 	if err != nil {
-		w.WriteHeader(400)
-		io.WriteString(w, "invalid body")
+		return nil,err
 	}
 
 
@@ -424,30 +292,22 @@ func (daemon *VirtDaemon)cloneDisk(w http.ResponseWriter, r *http.Request) {
 	dest := fmt.Sprintf("%s/cloned/%d.qcow2", strings.Join(path[:3], "/"),time.Now().Nanosecond())
 	err = qemuimg.CloneVolume(in.Source.Path,dest,in.Size)
 	if err != nil {
-		w.WriteHeader(400)
-		io.WriteString(w, err.Error())
+		return nil,err
 	}
 
 	volume := daemon.libvirt.ListDisks()
 	for _,v := range volume {
 		if v.Path == dest {
-			w.WriteHeader(200)
-			data,_ := yaml.Marshal(v)
-			io.WriteString(w, string(data))
-			return
+			return struct{}{},nil
 		}
 	}
 
-	w.WriteHeader(400)
-	io.WriteString(w, "failed")
+	return nil,fmt.Errorf("clone failed: new disk not found")
 }
 
-func (daemon *VirtDaemon)listGPUs(w http.ResponseWriter, r *http.Request) {
-	auth := &AuthHeader{}
-	auth.ParseReq(r)
 
 
-
+func (daemon *VirtDaemon)listGPUs(data []byte) (any,error) {
 	gpus 	:= daemon.libvirt.ListGPUs()
 
 	domains := daemon.libvirt.ListDomains()
@@ -498,7 +358,5 @@ func (daemon *VirtDaemon)listGPUs(w http.ResponseWriter, r *http.Request) {
 	}
 
 
-	w.WriteHeader(200)
-	data,_ := yaml.Marshal(result)
-	io.WriteString(w, string(data))
+	return result,nil
 }

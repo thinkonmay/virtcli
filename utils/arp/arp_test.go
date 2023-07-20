@@ -6,7 +6,7 @@ import (
 )
 
 func TestArp(t *testing.T) {
-	macip,err := getIPIface()
+	macip,err := getIPIface("192.168.1")
 	if err != nil {
 		t.Error(err)
 	}
