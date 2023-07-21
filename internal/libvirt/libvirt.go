@@ -129,7 +129,7 @@ func (lv *Libvirt)deleteDisks(path string) error {
 		for _, sv := range vols {
 			xml,err := lv.conn.StorageVolGetXMLDesc(sv,0)
 			if err != nil {
-				fmt.Printf("%s\n",err.Error())
+				// fmt.Printf("%s\n",err.Error())
 				continue
 			}
 
@@ -155,19 +155,19 @@ func (lv *Libvirt)ListDisks() []model.Volume{
 
 		err:= lv.conn.StoragePoolRefresh(nd,0)
 		if err != nil {
-			fmt.Printf("%s\n",err.Error())
+			// fmt.Printf("%s\n",err.Error())
 			continue
 		}
 		vols,_,err := lv.conn.StoragePoolListAllVolumes(nd,1,0)
 		if err != nil {
-			fmt.Printf("%s\n",err.Error())
+			// fmt.Printf("%s\n",err.Error())
 			continue
 		}
 
 		for _, sv := range vols {
 			xml,err := lv.conn.StorageVolGetXMLDesc(sv,0)
 			if err != nil {
-				fmt.Printf("%s\n",err.Error())
+				// fmt.Printf("%s\n",err.Error())
 				continue
 			}
 
@@ -395,14 +395,19 @@ func (lv *Libvirt)StopVM(name string) (error) {
 	start := time.Now()
 	for {
 		err = lv.conn.DomainShutdown(dom)
-		if err == nil || time.Now().UnixMilli() - start.UnixMilli() > 10 * 1000 {
-			break
+		if err != nil {
+			if strings.Contains(err.Error(),"domain is not running") {
+				return nil
+			}
+
+			fmt.Fprintf(os.Stderr, "failed to shutdown %s\n",err.Error())
+			time.Sleep(1 * time.Second)
 		}
 
-		time.Sleep(1 * time.Second)
+		if time.Now().UnixMilli() - start.UnixMilli() > 30 * 1000 {
+			return fmt.Errorf("timeout shutting down VM %s",name)
+		} 
 	}
-
-	return err
 }
 func (lv *Libvirt)StartVM(name string,
 						  gpus []model.GPU) (error) {
@@ -551,7 +556,7 @@ func (lv *Libvirt)DeleteVM(name string,running bool) (error) {
 		if !found {
 			return nil
 		} else if time.Now().UnixMilli() - start > 10 * time.Second.Milliseconds() {
-			return fmt.Errorf("timeout")
+			return fmt.Errorf("timeout delete VM %s",name)
 		}
 
 		time.Sleep(500 * time.Millisecond)
@@ -559,5 +564,3 @@ func (lv *Libvirt)DeleteVM(name string,running bool) (error) {
 }
 
 
-// // stats,err := l.ConnectGetAllDomainStats(domains,0,libvirt.ConnectGetAllDomainsStatsActive)
-// // fmt.Printf("%v\n",stats)

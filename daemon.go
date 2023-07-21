@@ -96,22 +96,33 @@ func (daemon *VirtDaemon)stopVM(body []byte) (any, error) {
 	}
 
 
-	found := false
-	doms := daemon.hypervisor.ListDomain()
-	for _, d := range doms {
-		if d.Name == string(server.Name) && 
-		   d.Status == qemu.StatusRunning {
-			found = true 
+
+	start := time.Now()
+	for {
+		if time.Now().UnixMilli() - start.UnixMilli() > 30 * 1000 {
+			break
 		}
+
+		doms := daemon.hypervisor.ListDomain()
+		for _, d := range doms {
+			if d.Name == string(server.Name) {
+				if d.Status == qemu.StatusRunning {
+					err = daemon.libvirt.StopVM(server.Name)
+					if err != nil {
+						return nil, err
+					}
+				} else if d.Status == qemu.StatusShutdown {
+					return fmt.Sprintf("VM %s stopped",server.Name),nil
+				} else {
+					return nil,fmt.Errorf("VM %s in %s state, abort",server.Name,d.Status.String())
+				}
+			}
+		}
+
+		time.Sleep(time.Second)
 	}
 
-	if !found {
-		return nil,fmt.Errorf("vm not found")
-	}
-
-
-	err = daemon.libvirt.StopVM(string(server.Name))
-	return fmt.Sprintf("VM %s stopped",server.Name),err
+	return nil,fmt.Errorf("timeout shuting down VM %s",server.Name)
 }
 
 
@@ -136,7 +147,7 @@ func (daemon *VirtDaemon)startVM(body []byte) (any, error) {
 		}
 	}
 	if !found {
-		return nil,fmt.Errorf("vm not found")
+		return nil,fmt.Errorf("vm %s not found",string(server.Name))
 	}
 
 
@@ -160,17 +171,17 @@ func (daemon *VirtDaemon)deleteVM(body []byte) (any, error) {
 	running := false
 	doms := daemon.hypervisor.ListDomain()
 	for _, d := range doms {
-		if d.Name == string(body) {
+		if d.Name == string(server.Name) {
 			found = true
 			running = d.Status == qemu.StatusRunning
 		}
 	}
 	if !found {
-		return nil,fmt.Errorf("vm not found")
+		return nil,fmt.Errorf("vm %s not found",string(server.Name))
 	}
 
 
-	err = daemon.libvirt.DeleteVM(string(body),running)
+	err = daemon.libvirt.DeleteVM(server.Name,running)
 	return fmt.Sprintf("VM %s deleted",server.Name),err
 }
 
@@ -196,7 +207,7 @@ func (daemon *VirtDaemon)statusVM(body []byte) (any, error) {
 		}
 	}
 
-	return nil,fmt.Errorf("vm not found")
+	return nil,fmt.Errorf("vm %s not found",string(server.Name))
 }
 
 
@@ -298,7 +309,7 @@ func (daemon *VirtDaemon)cloneDisk(body []byte) (any, error){
 	volume := daemon.libvirt.ListDisks()
 	for _,v := range volume {
 		if v.Path == dest {
-			return struct{}{},nil
+			return v,nil
 		}
 	}
 

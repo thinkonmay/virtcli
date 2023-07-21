@@ -16,13 +16,11 @@ func CloneVolume(src string,
 		fmt.Sprintf("%dG", size),
 	)
 
-	fmt.Printf("cloning disk with command %v\n",cmd.Args)
 
 	out,err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("%s : %s",err.Error(),out) 
 	}
 
-	fmt.Printf("clone img done, result: %s\n",string(out))
 	return nil
 }

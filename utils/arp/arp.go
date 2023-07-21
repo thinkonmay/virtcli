@@ -104,7 +104,7 @@ func getIPIface(prefix string) (ret map[string]string, err error) { // TODO
 		}
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(300 * time.Millisecond)
 	stop = true
 	return 
 }
