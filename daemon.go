@@ -42,10 +42,6 @@ func NewVirtDaemon(verb string, data []byte) (any,error){
 		fun = daemon.listVMs
 	case "/gpus": 		
 		fun = daemon.listGPUs
-	case "/disks": 		
-		fun = daemon.listDisks
-	case "/disk/clone": 	
-		fun = daemon.cloneDisk
 	}
 
 	return fun(data)
