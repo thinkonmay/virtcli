@@ -60,18 +60,44 @@ func (daemon *VirtDaemon)deployVM(body []byte) (any, error) {
 		RAM  int `yaml:"ram"`
 
 		GPU []model.GPU `yaml:"gpu"`
-		Volume []model.Volume`yaml:"volume"`
+		Volume struct{
+			Folder string `yaml:"folder"`
+			Path  []string `yaml:"path"`
+		} `yaml:"volume"`
 	}{}
 
 	err := yaml.Unmarshal(body,&server)
 	if err != nil {
 		return nil,err
 	}
+
+	pool,err := daemon.libvirt.CreateTempPool(server.Volume.Folder)
+	if err != nil {
+		return nil, err
+	}
+
+	defer daemon.libvirt.RemovePool(*pool)
+	volume,choosen_vl := daemon.libvirt.ListDisks(),[]model.Volume{}
+	for _,vol := range volume {
+		add := false
+		for _, v := range server.Volume.Path {
+			if vol.Path == v {
+				add = true
+			}
+		}
+		if !add {
+			continue
+		}
+
+
+		choosen_vl = append(choosen_vl, vol)
+	}
+
 	name,err := daemon.libvirt.CreateVM(
 		server.VCPU,
 		server.RAM,
 		server.GPU,
-		server.Volume,
+		choosen_vl,
 	)
 
 	return struct {

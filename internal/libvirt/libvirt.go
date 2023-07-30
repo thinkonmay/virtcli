@@ -1,6 +1,7 @@
 package libvirt
 
 import (
+	"encoding/xml"
 	"fmt"
 	"io"
 	"log"
@@ -564,3 +565,22 @@ func (lv *Libvirt)DeleteVM(name string,running bool) (error) {
 }
 
 
+
+func (lv *Libvirt) CreateTempPool(path string) (*libvirt.StoragePool,error) {
+	now := fmt.Sprintf("%d",time.Now().UnixMilli())
+	result,_ := xml.Marshal(model.StoragePool{
+		Type: "dir",
+		Name: now,
+		Path: path,
+	})
+	pool,err := lv.conn.StoragePoolDefineXML(string(result),0)
+	if err != nil {
+		return nil, err
+	}
+	return &pool,nil
+}
+
+
+func (lv *Libvirt) RemovePool(pool libvirt.StoragePool) (error) {
+	return lv.conn.StoragePoolUndefine(pool)
+}

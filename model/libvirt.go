@@ -429,3 +429,11 @@ type Volume struct {
 func (vl *Volume)Parse(dat string) error {
 	return xml.Unmarshal([]byte(dat),vl)
 }
+
+
+type StoragePool struct {
+	Type string `xml:"type,attr"`
+	Name string `xml:"name"`
+
+	Path string `xml:"target>path"`
+}
