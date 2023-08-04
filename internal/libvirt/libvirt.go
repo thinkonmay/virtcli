@@ -3,7 +3,6 @@ package libvirt
 import (
 	"encoding/xml"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -267,6 +266,7 @@ func VolType(vols []model.Volume, target model.Volume) string {
 }
 
 
+
 func (lv *Libvirt)CreateVM(vcpus int,
 							ram int,
 							gpus []model.GPU,
@@ -276,20 +276,9 @@ func (lv *Libvirt)CreateVM(vcpus int,
 		return "",fmt.Errorf("vcpus should not be odd")
 	}
 
-	file,err := os.OpenFile("./model/data/vm.yaml",os.O_RDWR,0755)
-	if err != nil {
-		panic(err)
-	}
-
-	data,err := io.ReadAll(file)
-	if err != nil {
-		panic(err)
-	}
-
 	dom := model.Domain{}
-	yaml.Unmarshal(data, &dom)
+	yaml.Unmarshal([]byte(libvirtVM), &dom)
 
-	file.Close()
 	name := fmt.Sprintf("%d", time.Now().Nanosecond())
 	dom.Name = &name
 	dom.Uuid = nil
