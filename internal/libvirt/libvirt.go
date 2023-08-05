@@ -130,40 +130,13 @@ func (lv *Libvirt)ListDomainIPs(dom model.Domain) []string { // TODO
 }
 
 
-func VolType(vols []model.Volume, target model.Volume) string {
-	if  strings.Contains(strings.ToLower(target.Path),"os"){
-		return "os"
-	} else if strings.Contains(strings.ToLower(target.Path),"game") || 
-			  strings.Contains(strings.ToLower(target.Path),"app") {
-		return "app"
-	}
-
-	for _, v := range vols {
-		if v.Path != target.Path || v.Backing == nil {
-			continue
-		}
-
-		backingChild := model.Volume{}
-		for _, v2 := range vols {
-			if v.Backing.Path == v2.Path {
-				backingChild = v2
-			}
-		}
-
-
-		return VolType(vols, backingChild)
-	}
-
-	return "unknown"
-}
-
 
 
 func (lv *Libvirt)CreateVM(	id string,
 							vcpus int,
 							ram int,
 							gpus []model.GPU,
-							vols []model.Volume,
+							vols []model.Disk,
 							) (string,error) {
 	if vcpus % 2 == 1 {
 		return "",fmt.Errorf("vcpus should not be odd")
@@ -171,10 +144,6 @@ func (lv *Libvirt)CreateVM(	id string,
 
 	dom := model.Domain{}
 	yaml.Unmarshal([]byte(libvirtVM), &dom)
-
-	dom.Name = &id
-	dom.Uuid = nil
-
 
 	dom.Hostdevs = []model.HostDev{}
 	for _, nd := range gpus {
@@ -198,41 +167,16 @@ func (lv *Libvirt)CreateVM(	id string,
 		}
 	}
 
-	dom.Disk = []model.Disk{}
-	for i,d := range vols {
-		dev := "hda"
-		if i == 1 {
-			dev = "hdb"
-		}
 
-		dom.Disk = append(dom.Disk, model.Disk{
-			Driver: &struct{Name string "xml:\"name,attr\""; Type string "xml:\"type,attr\""}{
-				Name: "qemu",
-				Type: "qcow2",
-			},
-			Source: &struct{File string "xml:\"file,attr\""; Index int "xml:\"index,attr\""}{
-				File: d.Path,
-				Index: 1,
-			},
-			Target: &struct{Dev string "xml:\"dev,attr\""; Bus string "xml:\"bus,attr\""}{
-				Dev: dev,
-				Bus: "ide",
-			},
-			Address: nil,
-			Type: "file",
-			Device: "disk",
-			// BackingStore: backingChain(voldb,d),
-			BackingStore: nil,
-		})
-	}
-
-	dom.Interfaces = []model.Interface{}
 	iface,err := lv.vswitch.CreateInterface()
 	if err != nil {
 		return "", err
 	}
 
-	dom.Interfaces = append(dom.Interfaces, *iface)
+	dom.Name 				= &id
+	dom.Uuid 				= nil
+	dom.Disk 				= vols
+	dom.Interfaces 			= []model.Interface{*iface}
 
 	dom.Memory.Value        = ram * 1024 * 1024
 	dom.CurrentMemory.Value = ram * 1024 * 1024

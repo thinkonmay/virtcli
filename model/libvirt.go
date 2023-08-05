@@ -304,7 +304,10 @@ func (domain *Domain)Parse(data []byte) error {
 	return xml.Unmarshal(data,domain)
 }
 func (domain *Domain)ToString() string {
-	data,_ := xml.MarshalIndent(domain,"","  ")
+	data,err := xml.MarshalIndent(domain,"","  ")
+	if err != nil {
+		panic(err)
+	}
 	return string(data)
 }
 
@@ -392,44 +395,6 @@ func (iface *Iface)Parse(dat string) error {
 }
 
 
-type Volume struct {
-	XMLName xml.Name `xml:"volume" yaml:"name,inline"`
-	Source *struct{} `xml:"source"`
-	Key string `xml:"key"`
-	Name string `xml:"name"`
-	Type string `xml:"type,attr"`
-	Vm string // not mapped
-	Use string // not mapped
-
-  	Capacity *struct{
-		Unit string `xml:"unit,attr"`
-		Val int `xml:",chardata"`
-	} `xml:"capacity"`
-  	Physical *struct{
-		Unit string `xml:"unit,attr"`
-		Val int `xml:",chardata"`
-	} `xml:"physical"`
-  	Allocation *struct{
-		Unit string `xml:"unit,attr"`
-		Val int `xml:",chardata"`
-	} `xml:"allocation"`
-
-	Path string `xml:"target>path"`
-	Format *struct{
-		Type string `xml:"type,attr"`
-
-	}`xml:"target>format"`
-	Backing *struct{
-		Path string `xml:"path"`
-		Format struct {
-			Type string `xml:"type,attr"`
-		} `xml:"format"` 
-	} `xml:"backingStore"`
-
-}
-func (vl *Volume)Parse(dat string) error {
-	return xml.Unmarshal([]byte(dat),vl)
-}
 
 
 type StoragePool struct {

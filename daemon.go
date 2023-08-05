@@ -48,38 +48,28 @@ func NewVirtDaemon(verb string, data []byte) (any,error){
 
 
 
-func backingChain(vols []model.Volume, target model.Volume) *model.BackingStore {
-	var backing *model.BackingStore = nil 
-
-	for _,v := range vols {
-		if v.Path != target.Path || v.Backing == nil {
-			continue
-		}
-
-		backingChild := model.Volume{}
-		for _, v2 := range vols {
-			if v.Backing.Path == v2.Path {
-				backingChild = v2
-			}
-		}
-
-
-		backing = &model.BackingStore{
-			Type: "file",
-			Format: &struct{Type string "xml:\"type,attr\""}{
-				Type: "qcow2",
-			},
-			Source: &struct{File string "xml:\"file,attr\""}{
-				File: v.Backing.Path,
-			},
-			BackingStore: backingChain(vols,backingChild),
-		}
+func backingChain(vols *Volume) *model.BackingStore {
+	if vols == nil {
+		return nil
 	}
 
-	return backing
+	return &model.BackingStore{
+		Type: "file",
+		Format: &struct{Type string "xml:\"type,attr\""}{
+			Type: "qcow2",
+		},
+		Source: &struct{File string "xml:\"file,attr\""}{
+			File: vols.Path,
+		},
+		BackingStore: backingChain(vols.Backing),
+	}
 }
 
 
+type Volume struct{
+	Path string `yaml:"path"`
+	Backing *Volume `yaml:"backing"`
+}
 
 func (daemon *VirtDaemon)deployVM(body []byte) (any, error) {
 	server := struct{
@@ -87,7 +77,7 @@ func (daemon *VirtDaemon)deployVM(body []byte) (any, error) {
 		VCPU int `yaml:"vcpus"`
 		RAM  int `yaml:"ram"`
 		GPU []model.GPU `yaml:"gpu"`
-		Volumes []string `yaml:"volumes"`
+		Volumes []Volume `yaml:"volumes"`
 	}{}
 
 	err := yaml.Unmarshal(body,&server)
@@ -97,12 +87,42 @@ func (daemon *VirtDaemon)deployVM(body []byte) (any, error) {
 
 
 
-	volumes := []model.Volume{}
-	for _,v := range server.Volumes {
-		volumes = append(volumes, model.Volume{
-			Path: v,
-			Format: &struct{Type string "xml:\"type,attr\""}{ Type: "qcow2", },
-			// Backing: backingChain(),
+	volumes := []model.Disk{}
+	for i,v := range server.Volumes {
+		dev := ""
+		switch i {
+		case 0:
+		dev = "hda"
+		case 1:
+		dev = "hdb"
+		case 2:
+		dev = "hdc"
+		case 3:
+		dev = "hdd"
+		case 4:
+		dev = "hde"
+		case 5:
+		dev = "hdf"
+		}
+
+
+		volumes = append(volumes, model.Disk{
+			Driver: &struct{Name string "xml:\"name,attr\""; Type string "xml:\"type,attr\""}{
+				Name: "qemu",
+				Type: "qcow2",
+			},
+			Source: &struct{File string "xml:\"file,attr\""; Index int "xml:\"index,attr\""}{
+				File: v.Path,
+				Index: 1,
+			},
+			Target: &struct{Dev string "xml:\"dev,attr\""; Bus string "xml:\"bus,attr\""}{
+				Dev: dev,
+				Bus: "ide",
+			},
+			Address: nil,
+			Type: "file",
+			Device: "disk",
+			BackingStore: backingChain(v.Backing),
 		})	
 	}
 
