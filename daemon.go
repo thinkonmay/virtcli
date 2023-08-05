@@ -219,7 +219,11 @@ func (daemon *VirtDaemon)statusVM(body []byte) (any, error) {
 		}
 	}
 
-	return nil,fmt.Errorf("vm %s not found",string(server.Name))
+	return struct{
+		Status string
+	}{
+		Status: "StatusDeleted",
+	},nil
 }
 
 
