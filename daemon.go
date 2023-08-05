@@ -2,10 +2,8 @@ package virtdaemon
 
 import (
 	"fmt"
-	"strings"
 	"test/internal/libvirt"
 	qemuhypervisor "test/internal/qemu"
-	qemuimg "test/internal/qemu/image"
 	"test/model"
 	"time"
 
@@ -42,8 +40,6 @@ func NewVirtDaemon(verb string, data []byte) (any,error){
 		fun = daemon.listVMs
 	case "/gpus": 		
 		fun = daemon.listGPUs
-	case "/disks": 		
-		fun = daemon.listDisks
 	}
 
 	return fun(data)
@@ -52,7 +48,36 @@ func NewVirtDaemon(verb string, data []byte) (any,error){
 
 
 
+func backingChain(vols []model.Volume, target model.Volume) *model.BackingStore {
+	var backing *model.BackingStore = nil 
 
+	for _,v := range vols {
+		if v.Path != target.Path || v.Backing == nil {
+			continue
+		}
+
+		backingChild := model.Volume{}
+		for _, v2 := range vols {
+			if v.Backing.Path == v2.Path {
+				backingChild = v2
+			}
+		}
+
+
+		backing = &model.BackingStore{
+			Type: "file",
+			Format: &struct{Type string "xml:\"type,attr\""}{
+				Type: "qcow2",
+			},
+			Source: &struct{File string "xml:\"file,attr\""}{
+				File: v.Backing.Path,
+			},
+			BackingStore: backingChain(vols,backingChild),
+		}
+	}
+
+	return backing
+}
 
 
 
@@ -71,14 +96,13 @@ func (daemon *VirtDaemon)deployVM(body []byte) (any, error) {
 	}
 
 
+
 	volumes := []model.Volume{}
 	for _,v := range server.Volumes {
 		volumes = append(volumes, model.Volume{
 			Path: v,
-			Format: &struct{Type string "xml:\"type,attr\""}{
-				Type: "qcow2",
-			},
-			Backing: nil,
+			Format: &struct{Type string "xml:\"type,attr\""}{ Type: "qcow2", },
+			// Backing: backingChain(),
 		})	
 	}
 
@@ -253,84 +277,9 @@ func (daemon *VirtDaemon)listVMs(data []byte) (any, error) {
 	return result,nil
 }
 
-func (daemon *VirtDaemon)listDisks(data []byte) (any,error) {
-
-	volume := daemon.libvirt.ListDisks()
-	result := struct{
-		Active 		[]model.Volume `yaml:"active"`
-		Available 	[]model.Volume `yaml:"open"`
-	}{
-		Active		: []model.Volume{},
-		Available	: []model.Volume{},
-	}
-
-	qemudom := daemon.libvirt.ListDomains()
-	doms := daemon.hypervisor.ListDomain()
-
-	for _,vol := range volume {
-		add := true
-		for _, d := range qemudom {
-			for _, bd := range d.Disk {
-				if bd.Source == nil || bd.Driver.Type != "qcow2" {
-					continue
-				} else if bd.Source.File != vol.Path { // match file
-					continue
-				}
-
-				vol.Vm = *d.Name
-
-				// do not add to open if the VM accessing the disk is running
-				for _, d2 := range doms {
-					if d2.Name == *d.Name && 
-						d2.Status == qemu.StatusRunning { 
-						add = false
-					}
-				}
-			}
-		}
-		vol.Use = libvirt.VolType(volume,vol)
-		result.Active = append(result.Active, vol)
-		if add {
-			result.Available = append(result.Available, vol)
-		}
-	}
 
 
 
-
-	return result,nil
-}
-
-
-func (daemon *VirtDaemon)cloneDisk(body []byte) (any, error){
-	in := struct{ 
-		Source model.Volume `yaml:"source"` 
-		Size int `yaml:"size"` 
-	}{}
-
-	err := yaml.Unmarshal(body,&in)
-	if err != nil {
-		return nil,err
-	}
-
-
-
-	path := strings.Split(in.Source.Path,"/")
-	dest := fmt.Sprintf("%s/cloned/%d.qcow2", strings.Join(path[:3], "/"),time.Now().Nanosecond())
-	err = qemuimg.CloneVolume(in.Source.Path,dest,in.Size)
-	if err != nil {
-		return nil,err
-	}
-
-	volume := daemon.libvirt.ListDisks()
-	for _,v := range volume {
-		if v.Path == dest {
-			return v,nil
-		}
-	}
-
-	return nil,fmt.Errorf("clone failed: new disk not found")
-}
 
 
 

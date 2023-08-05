@@ -23,9 +23,6 @@ type Libvirt struct {
 	vswitch *ovs.OpenVSwitch
 }
 
-var (
-	ifwhitelist = []string{"enp0s25","enp11s0","enp5s0"}
-)
 
 func NewLibvirt() *Libvirt {
 	ret := &Libvirt{
@@ -108,81 +105,6 @@ func (lv *Libvirt)ListGPUs() []model.GPU{
 }
 
 
-func (lv *Libvirt)deleteDisks(path string) error {
-	if strings.Contains(path, "do-not-delete") {
-		return fmt.Errorf("resource name contain do-not-delete tag")
-	}
-
-	dev,_,_ := lv.conn.ConnectListAllStoragePools(1,libvirt.ConnectListStoragePoolsActive)
-
-	for _, nd := range dev {
-		err := lv.conn.StoragePoolRefresh(nd,0)
-		if err != nil {
-			continue
-		}
-
-		vols,_,err := lv.conn.StoragePoolListAllVolumes(nd,1,0)
-		if err != nil {
-			continue
-		}
-
-		for _, sv := range vols {
-			xml,err := lv.conn.StorageVolGetXMLDesc(sv,0)
-			if err != nil {
-				// fmt.Printf("%s\n",err.Error())
-				continue
-			}
-
-			vl := model.Volume{}
-			vl.Parse(xml)
-			if vl.Path == path && vl.Format.Type == "qcow2"{
-				return lv.conn.StorageVolDelete(sv,libvirt.StorageVolDeleteNormal)
-			}
-		}
-	}
-
-	return nil
-}
-func (lv *Libvirt)ListDisks() []model.Volume{
-	dev,_,_ := lv.conn.ConnectListAllStoragePools(1,libvirt.ConnectListStoragePoolsActive)
-
-	
-	ret := []model.Volume{}
-	for _, nd := range dev {
-		if strings.Contains(strings.ToLower(nd.Name),"ignore") {
-			continue
-		}
-
-		err:= lv.conn.StoragePoolRefresh(nd,0)
-		if err != nil {
-			// fmt.Printf("%s\n",err.Error())
-			continue
-		}
-		vols,_,err := lv.conn.StoragePoolListAllVolumes(nd,1,0)
-		if err != nil {
-			// fmt.Printf("%s\n",err.Error())
-			continue
-		}
-
-		for _, sv := range vols {
-			xml,err := lv.conn.StorageVolGetXMLDesc(sv,0)
-			if err != nil {
-				// fmt.Printf("%s\n",err.Error())
-				continue
-			}
-
-			vl := model.Volume{}
-			vl.Parse(xml)
-			if vl.Format.Type != "qcow2" {
-				continue
-			}
-
-			ret = append(ret, vl)
-		}
-	}
-
-	return ret
-}
 
 
 func (lv *Libvirt)ListDomainIPs(dom model.Domain) []string { // TODO
@@ -208,36 +130,6 @@ func (lv *Libvirt)ListDomainIPs(dom model.Domain) []string { // TODO
 }
 
 
-func backingChain(vols []model.Volume, target model.Volume) *model.BackingStore {
-	var backing *model.BackingStore = nil 
-
-	for _,v := range vols {
-		if v.Path != target.Path || v.Backing == nil {
-			continue
-		}
-
-		backingChild := model.Volume{}
-		for _, v2 := range vols {
-			if v.Backing.Path == v2.Path {
-				backingChild = v2
-			}
-		}
-
-
-		backing = &model.BackingStore{
-			Type: "file",
-			Format: &struct{Type string "xml:\"type,attr\""}{
-				Type: "qcow2",
-			},
-			Source: &struct{File string "xml:\"file,attr\""}{
-				File: v.Backing.Path,
-			},
-			BackingStore: backingChain(vols,backingChild),
-		}
-	}
-
-	return backing
-}
 func VolType(vols []model.Volume, target model.Volume) string {
 	if  strings.Contains(strings.ToLower(target.Path),"os"){
 		return "os"
@@ -306,7 +198,6 @@ func (lv *Libvirt)CreateVM(	id string,
 		}
 	}
 
-	voldb := lv.ListDisks()
 	dom.Disk = []model.Disk{}
 	for i,d := range vols {
 		dev := "hda"
@@ -330,7 +221,8 @@ func (lv *Libvirt)CreateVM(	id string,
 			Address: nil,
 			Type: "file",
 			Device: "disk",
-			BackingStore: backingChain(voldb,d),
+			// BackingStore: backingChain(voldb,d),
+			BackingStore: nil,
 		})
 	}
 
