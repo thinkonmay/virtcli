@@ -267,7 +267,8 @@ func VolType(vols []model.Volume, target model.Volume) string {
 
 
 
-func (lv *Libvirt)CreateVM(vcpus int,
+func (lv *Libvirt)CreateVM(	id string,
+							vcpus int,
 							ram int,
 							gpus []model.GPU,
 							vols []model.Volume,
@@ -279,8 +280,7 @@ func (lv *Libvirt)CreateVM(vcpus int,
 	dom := model.Domain{}
 	yaml.Unmarshal([]byte(libvirtVM), &dom)
 
-	name := fmt.Sprintf("%d", time.Now().Nanosecond())
-	dom.Name = &name
+	dom.Name = &id
 	dom.Uuid = nil
 
 
@@ -317,7 +317,7 @@ func (lv *Libvirt)CreateVM(vcpus int,
 		dom.Disk = append(dom.Disk, model.Disk{
 			Driver: &struct{Name string "xml:\"name,attr\""; Type string "xml:\"type,attr\""}{
 				Name: "qemu",
-				Type: d.Format.Type,
+				Type: "qcow2",
 			},
 			Source: &struct{File string "xml:\"file,attr\""; Index int "xml:\"index,attr\""}{
 				File: d.Path,
@@ -328,7 +328,7 @@ func (lv *Libvirt)CreateVM(vcpus int,
 				Bus: "ide",
 			},
 			Address: nil,
-			Type: d.Type,
+			Type: "file",
 			Device: "disk",
 			BackingStore: backingChain(voldb,d),
 		})
@@ -518,14 +518,6 @@ func (lv *Libvirt)DeleteVM(name string,running bool) (error) {
 	err = dommodel.Parse([]byte(desc))
 	if err != nil {
 		return err
-	}
-
-	for _, d := range dommodel.Disk {
-		if d.Source == nil || d.Driver.Type != "qcow2" {
-			continue
-		} else if err := lv.deleteDisks(d.Source.File); err != nil {
-			return err
-		}
 	}
 
 	start := time.Now().UnixMilli()

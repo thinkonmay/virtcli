@@ -42,6 +42,8 @@ func NewVirtDaemon(verb string, data []byte) (any,error){
 		fun = daemon.listVMs
 	case "/gpus": 		
 		fun = daemon.listGPUs
+	case "/disks": 		
+		fun = daemon.listDisks
 	}
 
 	return fun(data)
@@ -56,14 +58,11 @@ func NewVirtDaemon(verb string, data []byte) (any,error){
 
 func (daemon *VirtDaemon)deployVM(body []byte) (any, error) {
 	server := struct{
+		ID   string `yaml:"id"`
 		VCPU int `yaml:"vcpus"`
 		RAM  int `yaml:"ram"`
-
 		GPU []model.GPU `yaml:"gpu"`
-		Volume struct{
-			Folder string `yaml:"folder"`
-			Path  []string `yaml:"path"`
-		} `yaml:"volume"`
+		Volumes []string `yaml:"volumes"`
 	}{}
 
 	err := yaml.Unmarshal(body,&server)
@@ -71,33 +70,24 @@ func (daemon *VirtDaemon)deployVM(body []byte) (any, error) {
 		return nil,err
 	}
 
-	pool,err := daemon.libvirt.CreateTempPool(server.Volume.Folder)
-	if err != nil {
-		return nil, err
-	}
 
-	defer daemon.libvirt.RemovePool(*pool)
-	volume,choosen_vl := daemon.libvirt.ListDisks(),[]model.Volume{}
-	for _,vol := range volume {
-		add := false
-		for _, v := range server.Volume.Path {
-			if vol.Path == v {
-				add = true
-			}
-		}
-		if !add {
-			continue
-		}
-
-
-		choosen_vl = append(choosen_vl, vol)
+	volumes := []model.Volume{}
+	for _,v := range server.Volumes {
+		volumes = append(volumes, model.Volume{
+			Path: v,
+			Format: &struct{Type string "xml:\"type,attr\""}{
+				Type: "qcow2",
+			},
+			Backing: nil,
+		})	
 	}
 
 	name,err := daemon.libvirt.CreateVM(
+		server.ID,
 		server.VCPU,
 		server.RAM,
 		server.GPU,
-		choosen_vl,
+		volumes,
 	)
 
 	return struct {
@@ -377,8 +367,9 @@ func (daemon *VirtDaemon)listGPUs(data []byte) (any,error) {
 					if  hd.SourceAddress.Bus == v.Bus &&
 						hd.SourceAddress.Domain == v.Domain && 
 						hd.SourceAddress.Function == v.Function && 
-						hd.SourceAddress.Slot == v.Slot{
-							add = false
+						hd.SourceAddress.Slot == v.Slot {
+						g.VM = d.Name
+						add = false
 					}
 				}
 			}

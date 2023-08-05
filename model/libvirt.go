@@ -314,6 +314,7 @@ func (domain *Domain)ToString() string {
 type GPU struct {
 	XMLName xml.Name `xml:"device" yaml:"domain,inline"`
 
+  	VM  *string // not mapped
   	Name string `xml:"name"`
   	Path string `xml:"path"`
   	Parent string `xml:"parent"`
@@ -432,8 +433,9 @@ func (vl *Volume)Parse(dat string) error {
 
 
 type StoragePool struct {
+	XMLName xml.Name `xml:"pool"`
 	Type string `xml:"type,attr"`
 	Name string `xml:"name"`
 
 	Path string `xml:"target>path"`
-}
+} 
