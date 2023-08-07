@@ -318,7 +318,7 @@ func (lv *Libvirt)StartVM(name string,
 
 func (lv *Libvirt)DeleteVM(name string,running bool) (error) {
 	if strings.Contains(name, "do-not-delete") {
-		return fmt.Errorf("resource name contain do-not-delete tag")
+		return nil
 	}
 
 	flags := libvirt.ConnectListDomainsActive | libvirt.ConnectListDomainsInactive
