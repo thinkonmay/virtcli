@@ -36,5 +36,5 @@ func main() {
 	}
 
 	fmt.Printf("%v\n", string(data))
-	os.Exit(55)
+	os.Exit(0)
 }
