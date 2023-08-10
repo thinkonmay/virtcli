@@ -142,6 +142,18 @@ func (lv *Libvirt)CreateVM(	id string,
 		return "",fmt.Errorf("vcpus should not be odd")
 	}
 
+	doms,_,err := lv.conn.ConnectListAllDomains(0,libvirt.ConnectListDomainsActive|libvirt.ConnectListDomainsInactive)
+	if err != nil {
+		return "",err
+	}
+
+	for _, d := range doms {
+		if d.Name == id {
+			lv.conn.DomainDestroy(d)
+			lv.conn.DomainUndefine(d)
+		}
+	}
+
 	dom := model.Domain{}
 	yaml.Unmarshal([]byte(libvirtVM), &dom)
 
