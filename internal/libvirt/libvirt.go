@@ -142,7 +142,7 @@ func (lv *Libvirt)CreateVM(	id string,
 		return "",fmt.Errorf("vcpus should not be odd")
 	}
 
-	doms,_,err := lv.conn.ConnectListAllDomains(0,libvirt.ConnectListDomainsActive|libvirt.ConnectListDomainsInactive)
+	doms,_,err := lv.conn.ConnectListAllDomains(1,libvirt.ConnectListDomainsActive|libvirt.ConnectListDomainsInactive)
 	if err != nil {
 		return "",err
 	}
@@ -150,7 +150,10 @@ func (lv *Libvirt)CreateVM(	id string,
 	for _, d := range doms {
 		if d.Name == id {
 			lv.conn.DomainDestroy(d)
-			lv.conn.DomainUndefine(d)
+			err = lv.conn.DomainUndefine(d)
+			if err != nil {
+				return "", err
+			}
 		}
 	}
 
@@ -199,7 +202,7 @@ func (lv *Libvirt)CreateVM(	id string,
 	dom.Cpu.Topology.Thread = 2
 
 	xml := dom.ToString()
-	result,err := lv.conn.DomainDefineXMLFlags(xml,libvirt.DomainDefineValidate)
+	result,err := lv.conn.DomainDefineXML(xml)
 	if err != nil {
 		return "",err
 	}
