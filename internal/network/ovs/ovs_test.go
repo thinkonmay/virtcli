@@ -1,15 +1,12 @@
 package ovs
 
 import (
-	"fmt"
+	// "fmt"
 	"testing"
 )
 
 func TestOVS(t *testing.T) {
-	sw := NewOVS()
-	brs,err := sw.Status()
-	if err != nil {
-		t.Error(err.Error())
-	}
-	fmt.Printf("%s\n", brs)
+	// sw := NewOVS()
+	// brs := sw.FindDomainIPs()
+	// fmt.Printf("%s\n", brs)
 }

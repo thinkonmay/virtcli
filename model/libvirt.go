@@ -273,6 +273,8 @@ type Domain struct {
 	Name          *string  `xml:"name"`
 	Uuid          *string  `xml:"uuid"`
 	PrivateIP     *[]string  // not mapped
+	Status        *string    // not mapped
+
 
 	Memory        Memory   `xml:"memory"`
 	CurrentMemory Memory   `xml:"currentMemory"`
