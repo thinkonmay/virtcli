@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"strings"
 	qemuhypervisor "test/internal/libvirt/qemu"
 	"test/internal/network"
@@ -22,16 +23,20 @@ type Libvirt struct {
 	Version string
 	conn    *libvirt.Libvirt
 
-	vswitch network.Network
-	libvirt network.Network
+	network network.Network
 	qemu    qemuhypervisor.QEMUHypervisor
 }
 
 func NewLibvirt() *Libvirt {
 	ret := &Libvirt{
-		vswitch: ovs.NewOVS(),
-		libvirt: libvirtnetwork.NewLibvirtNetwork(),
 		qemu:    *qemuhypervisor.NewQEMUHypervisor(),
+	}
+
+	ovsif := os.Getenv("OVS_IFACE")
+	if ovsif == "" {
+		ret.network = libvirtnetwork.NewLibvirtNetwork()
+	} else {
+		ret.network = ovs.NewOVS(ovsif)
 	}
 
 	c, err := net.DialTimeout("unix", "/var/run/libvirt/libvirt-sock", 2*time.Second)
@@ -107,11 +112,7 @@ func (lv *Libvirt) ListGPUs() []model.GPU {
 }
 
 func (lv *Libvirt) ListDomainIPs(dom model.Domain) []string { // TODO
-	ips0 := lv.vswitch.FindDomainIPs(dom)
-	if len(ips0) == 0 {
-		return lv.libvirt.FindDomainIPs(dom)
-	}
-	return ips0
+	return lv.network.FindDomainIPs(dom)
 }
 
 
@@ -163,7 +164,7 @@ func (lv *Libvirt) CreateVM(id string,
 		}
 	}
 
-	iface, err := lv.vswitch.CreateInterface()
+	iface, err := lv.network.CreateInterface()
 	if err != nil {
 		return "", err
 	}

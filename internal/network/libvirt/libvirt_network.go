@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"test/internal/network"
 	"test/model"
 	"time"
@@ -13,21 +14,21 @@ import (
 )
 
 const (
-	network_name = "virtless-default-network"
-	bridge_name  = "virtless-default-bridge"
+	network_name = "vlnet"
+	bridge_name  = "vlbr"
 )
 
 func newNetwork(card string) string {
 	return fmt.Sprintf(`
 	<network>
-		<name>%s</name>
+		<name>%son%s</name>
 		<forward dev="%s" mode="nat">
 			<interface dev="%s"/>
 			<nat>
 				<port start="1024" end="65535"/>
 			</nat>
 		</forward>
-		<bridge name="%s" stp="on" delay="0"/>
+		<bridge name="%son%s" stp="on" delay="0"/>
 		<domain name="network"/>
 		<ip address="192.168.100.1" netmask="255.255.255.0">
 			<dhcp>
@@ -35,7 +36,10 @@ func newNetwork(card string) string {
 			</dhcp>
 		</ip>
 	</network>
-	`, network_name, card, card, bridge_name)
+	`, network_name,card,
+	   card,
+	   card,
+	   bridge_name,card)
 }
 
 type LibvirtNetwork struct {
@@ -43,6 +47,9 @@ type LibvirtNetwork struct {
 }
 
 
+func isIPv4(address string) bool {
+    return strings.Count(address, ":") < 2
+}
 
 func NewLibvirtNetwork() network.Network {
 	c, err := net.DialTimeout("unix", "/var/run/libvirt/libvirt-sock", 2*time.Second)
@@ -58,13 +65,61 @@ func NewLibvirtNetwork() network.Network {
 		log.Fatalf("failed to connect: %v", err)
 	}
 
+
+
+	nets,_,_ := ret.conn.ConnectListAllNetworks(1, libvirt.ConnectListNetworksActive)
+	if len(nets) > 0 {
+		return ret
+	}
+
+
+	iface := ""
+	ifis,_ := net.Interfaces()
+	for _, i2 := range ifis {
+		if !strings.Contains(i2.Flags.String(), "running") ||
+			strings.Contains(i2.Flags.String(), "loopback") || 
+			strings.Contains(i2.Name, "br") ||
+			strings.Contains(i2.Name, "ovs") ||
+			strings.Contains(i2.Name, "vnet") {
+			continue
+		}
+
+		addr,_ := i2.Addrs()
+		for _,a := range addr {
+			if !isIPv4(a.String()) {
+				continue
+			}
+
+			iface = i2.Name
+		}
+	}
+
+
+	if iface == "" {
+		panic(fmt.Errorf("no network interface was found"))
+	}
+
+	_,err = ret.conn.NetworkCreateXML(newNetwork(iface))
+	if err != nil {
+		panic(err)
+	}
+
 	return ret
 }
 
 func (ovs *LibvirtNetwork) CreateInterface() (*model.Interface, error) {
+	nets,_,_ := ovs.conn.ConnectListAllNetworks(1, libvirt.ConnectListNetworksActive)
+
+	if len(nets) == 0 {
+		return nil,fmt.Errorf("not found any vnet")
+	}
 	Type := "e1000e"
+	Name := nets[0].Name
 	return &model.Interface{
 		Type: "network",
+		Source: &model.InterfaceSource{
+			Network: &Name,
+		},
 		Model: &struct {
 			Type *string "xml:\"type,attr\""
 		}{

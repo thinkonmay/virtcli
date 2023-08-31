@@ -2,6 +2,7 @@ package ovs
 
 import (
 	"fmt"
+	"net"
 	"test/internal/network"
 	"test/internal/network/ovs/arp"
 	"test/model"
@@ -14,10 +15,21 @@ type OpenVSwitch struct {
 	svc *ovs.Client
 }
 
-func NewOVS() network.Network {
+func NewOVS(iface string) network.Network {
+	ifis,_ := net.Interfaces()
+	throw := true
+	for _, i2 := range ifis {
+		if i2.Name == iface {
+			throw = false
+		}
+	}
+	if throw {
+		panic(fmt.Errorf("not iface was found %s",iface))
+	}
+
 	svc := ovs.New()
 	svc.VSwitch.AddBridge("br")
-	svc.VSwitch.AddPort("br", "enp5s0")
+	svc.VSwitch.AddPort("br", iface)
 	return &OpenVSwitch{
 		svc: svc,
 	}
