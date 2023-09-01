@@ -210,8 +210,8 @@ func (daemon *VirtDaemon) listGPUs(data []byte) (any, error) {
 	for _, g := range gpus {
 		add := true
 		for _, d := range domains {
-			if *d.Status ==  qemu.StatusRunning.String() || 
-			   *d.Status ==  qemu.StatusPaused.String() {
+			if *d.Status !=  qemu.StatusRunning.String() &&
+			   *d.Status !=  qemu.StatusPaused.String() {
 				continue
 			}
 
