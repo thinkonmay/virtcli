@@ -180,6 +180,11 @@ func (daemon *VirtDaemon) listVMs(data []byte) (any, error) {
 	result := map[string][]model.Domain{}
 
 	for _, d := range doms {
+		if d.Status == nil {
+			unknown := "unknown"
+			d.Status = &unknown
+		}
+
 		if result[*d.Status] == nil {
 			result[*d.Status] = []model.Domain{d}
 		} else {

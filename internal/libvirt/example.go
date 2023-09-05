@@ -25,19 +25,26 @@ os:
         arch: x86_64
         machine: pc-i440fx-focal
         value: hvm
+    smbios:
+        mode: host
 features:
     acpi: {}
     apic: {}
     vmport:
         state: "off"
-# TODO https://github.com/RarogCmex/Guide-Genshin-Impact-On-VM
+    kvm:
+        hidden: 
+            state: on
 cpu:
     mode: host-passthrough
     check: none
     topology:
         socket: 1
-        cores: 8
-        thread: 2
+        cores: 16
+        thread: 1
+    feature:
+        policy: disable
+        name: hypervisor
 clock:
     offset: utc
     timers:

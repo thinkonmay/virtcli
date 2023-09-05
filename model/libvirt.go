@@ -17,6 +17,10 @@ type CPU struct {
 	Mode     *string   `xml:"mode,attr"`
 	Check    *string   `xml:"check,attr"`
 	Topology Topology `xml:"topology"`
+	Feature *struct {
+		Policy *string `xml:"policy,attr"`
+		Name   *string `xml:"name,attr"`
+	} `xml:"feature"`
 }
 
 type Topology struct {
@@ -40,6 +44,9 @@ type OS struct {
 		Machine *string `xml:"machine,attr"`
 		Value   *string `xml:",chardata"`
 	} `xml:"type"`
+	Smbios *struct {
+		Mode *string `xml:"mode,attr"`
+	} `xml:"smbios"`
 }
 
 type Features struct {
@@ -48,6 +55,11 @@ type Features struct {
 	Vmport *struct {
 		State *string `xml:"state,attr"`
 	} `xml:"vmport"`
+	Kvm *struct {
+		Hidden *struct {
+			State *string `xml:"state,attr"`
+		} `xml:"hidden"`
+	} `xml:"kvm"`
 }
 
 type BackingStore struct {

@@ -136,10 +136,6 @@ func (lv *Libvirt) CreateVM(id string,
 	gpus []model.GPU,
 	vols []model.Disk,
 ) (string, error) {
-	if vcpus%2 == 1 {
-		return "", fmt.Errorf("vcpus should not be odd")
-	}
-
 	dom := model.Domain{}
 	yaml.Unmarshal([]byte(libvirtVM), &dom)
 	dom.Hostdevs = []model.HostDev{}
@@ -179,8 +175,8 @@ func (lv *Libvirt) CreateVM(id string,
 
 	dom.VCpu.Value = vcpus
 	dom.Cpu.Topology.Socket = 1
-	dom.Cpu.Topology.Cores = vcpus / 2
-	dom.Cpu.Topology.Thread = 2
+	dom.Cpu.Topology.Thread = 1
+	dom.Cpu.Topology.Cores = vcpus 
 
 	xml := dom.ToString()
 	result, err := lv.conn.DomainCreateXML(xml, libvirt.DomainStartValidate)
@@ -191,7 +187,7 @@ func (lv *Libvirt) CreateVM(id string,
 
 
 
-	time.Sleep(30 * time.Second)
+	time.Sleep(10 * time.Second)
 	statuses := lv.qemu.ListDomainWithStatus()
 	for _, d := range statuses {
 		if d.Name == id && d.Status != qemu.StatusRunning{
@@ -229,7 +225,7 @@ func (lv *Libvirt) DeleteVM(name string) error {
 
 	
 	lv.conn.DomainShutdown(dom)
-	time.Sleep(30 * time.Second)
+	time.Sleep(10 * time.Second)
 	statuses := lv.qemu.ListDomainWithStatus()
 	for _, d := range statuses {
 		if d.Name == dom.Name {
