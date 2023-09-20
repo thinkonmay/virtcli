@@ -46,17 +46,14 @@ cpu:
         policy: disable
         name: hypervisor
 clock:
-    offset: utc
+    offset: localtime
     timers:
-        - name: rtc
-          tickpolicy: catchup
-          present: null
-        - name: pit
-          tickpolicy: delay
-          present: null
         - name: hpet
           tickpolicy: null
-          present: "no"
+          present: yes
+        - name: hypervclock
+          tickpolicy: null
+          present: yes
 onreboot:
     value: restart
 onpoweroff:
