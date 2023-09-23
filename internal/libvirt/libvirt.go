@@ -188,8 +188,9 @@ func (lv *Libvirt) CreateVM(id string,
 		return "", err
 	}
 
-	fmt.Println(dom.ToString())
-	result, err := lv.conn.DomainCreateXML(dom.ToString(), libvirt.DomainStartValidate)
+	xml := dom.ToString()
+	fmt.Println(xml)
+	result, err := lv.conn.DomainCreateXML(xml, libvirt.DomainStartValidate)
 	if err != nil {
 		return "", fmt.Errorf("error starting VM: %s",err.Error())
 	}
