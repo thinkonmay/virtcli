@@ -236,3 +236,44 @@ func (lv *Libvirt) DeleteVM(name string) error {
 
 	return nil
 }
+
+
+
+func (lv *Libvirt) GetCPUPinning(count int) *model.CPU {
+	ret,available := []cpu.HostCore{},[]cpu.HostCore{}
+
+	doms := lv.ListDomains()
+	Topo,err := cpu.GetCPUPinning()
+	for _,cpu := range Topo.CPUs {
+		add := true
+		for _,dom := range doms {
+			for _,pin := dom.Cpu.Vcpupin {
+				if pin == cpu.CPU {
+					add = false
+				}
+			}
+		}
+
+		if !add {
+			continue;
+		}
+
+		available = append(available,cpu)
+	}
+
+
+	sockets := map[int]struct{
+		core map[int]int
+	}{}
+
+	for _,core := range available {
+
+
+	}
+
+
+
+	return &mode.CPU{
+
+	}
+}

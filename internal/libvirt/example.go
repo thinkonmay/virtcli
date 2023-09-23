@@ -166,6 +166,16 @@ interfaces:
         network: network
       model:
         type: e1000
+#     bandwidth:
+#       inbound:
+#           average: 1000
+#           peak: 1000
+#           floor: 1000
+#           burst: 1000
+#       outbound:
+#           average: 1000
+#           peak: 1000
+#           burst: 1000
 channel:
     type: spicevmc
     target:

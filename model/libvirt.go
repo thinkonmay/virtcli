@@ -21,6 +21,11 @@ type CPU struct {
 		Policy *string `xml:"policy,attr"`
 		Name   *string `xml:"name,attr"`
 	} `xml:"feature"`
+
+	Vcpupin []struct{
+		Vcpu int `xml:"vcpu,attr"`
+		Cpuset int `xml:"cpuset,attr"`
+	} `json:"cputune>vcpupin"`
 }
 
 type Topology struct {
