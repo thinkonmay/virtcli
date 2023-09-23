@@ -8,7 +8,6 @@ space: ""
 local: domain
 type: kvm
 name: vm5
-uuid: c0cd3c67-6a88-4797-8b74-5db6f5fa03e5
 memory:
     unit: KiB
     value: 16777216
