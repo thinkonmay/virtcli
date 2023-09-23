@@ -138,37 +138,31 @@ func (lv *Libvirt) CreateVM(id string,
 	gpus []model.GPU,
 	vols []model.Disk,
 ) (string, error) {
-	dom := model.Domain{
-		Hostdevs : []model.HostDev{},
-		Name : &id,
-		Disk : vols,
-		Uuid : nil,
-
-		Memory : model.Memory{
-			Value : ram * 1024 * 1024,
-		},
-
-		CurrentMemory: model.Memory{
-			Value : ram * 1024 * 1024,
-		},
-
-		VCpu: model.VCPU{
-			Value: vcpus,
-		},
-
-		Cpu: model.CPU{
-			Topology: model.Topology{
-				Socket : 1,
-				Thread : 1,
-				Cores  : vcpus,
-			},
-		},
-	}
-
+	dom := model.Domain{}
 	err := yaml.Unmarshal([]byte(libvirtVM), &dom)
-	if err != nil {
-		return "", err
+	if err != nil { return "", err }
+
+	dom.Name = &id
+	dom.Disk = vols
+	dom.Memory = model.Memory{
+		Value : ram * 1024 * 1024,
 	}
+	dom.CurrentMemory = model.Memory{
+		Value : ram * 1024 * 1024,
+	}
+	dom.VCpu = model.VCPU{
+		Value: vcpus,
+	}
+	dom.Cpu = model.CPU{
+		Topology: model.Topology{
+			Socket : 1,
+			Thread : 1,
+			Cores  : vcpus,
+		},
+	}
+
+	dom.Hostdevs = []model.HostDev{}
+	dom.Vcpupin  = []model.Vcpupin{}
 
 	for _, nd := range gpus {
 		dom.Vcpupin,err = lv.GetCPUPinning(vcpus,*nd.Capability.Numa.Node)
