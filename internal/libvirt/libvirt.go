@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -154,8 +155,8 @@ func (lv *Libvirt) CreateVM(id string,
 	dom.Cpu.Topology.Cores  = vcpus
 
 	dom.Hostdevs = []model.HostDev{}
-	dom.Vcpupin  = []model.Vcpupin{}
 
+	Vcpupin  := []model.Vcpupin{}
 	for _, nd := range gpus {
 		dom.Vcpupin,err = lv.GetCPUPinning(vcpus,*nd.Capability.Numa.Node)
 		if err != nil {
@@ -203,6 +204,18 @@ func (lv *Libvirt) CreateVM(id string,
 		}
 	}
 
+	for _,v := range Vcpupin {
+		fmt.Printf("pin host cpu %d to guest cpu %d",v.Cpuset,v.Vcpu)
+		result,err := exec.Command("virsh","vcpupin",
+			"--vcpu",fmt.Sprintf("%d",v.Vcpu),
+			"--cpulist",fmt.Sprintf("%d",v.Cpuset),
+			"--live").Output()
+		if err != nil {
+			fmt.Println(err.Error())
+		} else {
+			fmt.Println(string(result))
+		}
+	}
 	return string(result.Name), nil
 }
 
