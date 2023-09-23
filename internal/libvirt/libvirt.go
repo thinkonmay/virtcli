@@ -144,22 +144,13 @@ func (lv *Libvirt) CreateVM(id string,
 
 	dom.Name = &id
 	dom.Disk = vols
-	dom.Memory = model.Memory{
-		Value : ram * 1024 * 1024,
-	}
-	dom.CurrentMemory = model.Memory{
-		Value : ram * 1024 * 1024,
-	}
-	dom.VCpu = model.VCPU{
-		Value: vcpus,
-	}
-	dom.Cpu = model.CPU{
-		Topology: model.Topology{
-			Socket : 1,
-			Thread : 1,
-			Cores  : vcpus,
-		},
-	}
+	dom.Memory.Value = ram * 1024 * 1024
+	dom.CurrentMemory.Value = ram * 1024 * 1024
+	dom.VCpu.Value = vcpus
+
+	dom.Cpu.Topology.Socket = 1
+	dom.Cpu.Topology.Thread = 1 
+	dom.Cpu.Topology.Cores  = vcpus
 
 	dom.Hostdevs = []model.HostDev{}
 	dom.Vcpupin  = []model.Vcpupin{}
