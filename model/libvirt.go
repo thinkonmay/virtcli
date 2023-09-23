@@ -307,18 +307,19 @@ type Domain struct {
 	PM 			  *PM		  `xml:"pm"`
 
 
-	Emulator    Emulator     `xml:"devices>emulator"`
-	Vcpupin 	*[]Vcpupin 	 `xml:"cputune>vcpupin"`
+	Vcpupin 	[]Vcpupin 	 `xml:"cputune>vcpupin"`
+
+	Emulator    *Emulator    `xml:"devices>emulator"`
 	Disk        []Disk       `xml:"devices>disk"`
 	Controllers []Controller `xml:"devices>controller"`
 	Interfaces  []Interface  `xml:"devices>interface"`
-	Channel     *Channel		 `xml:"devices>channel"`
+	Channel     *Channel	 `xml:"devices>channel"`
 	Input	    []Input      `xml:"devices>input"`
-	Graphic     *Graphic      `xml:"devices>graphics"`
-	Sound       *Sound        `xml:"devices>sound"`
+	Graphic     *Graphic     `xml:"devices>graphics"`
+	Sound       *Sound       `xml:"devices>sound"`
 	Video       *Video		 `xml:"devices>video"`
 	Hostdevs    []HostDev    `xml:"devices>hostdev"`
-	Memballoon  *Memballoon   `xml:"devices>memballoon"`
+	Memballoon  *Memballoon  `xml:"devices>memballoon"`
 }
 func (domain *Domain)Parse(data []byte) error {
 	return xml.Unmarshal(data,domain)
