@@ -6,10 +6,10 @@ import (
 )
 
 type HostCore struct {
-	CPU int 	`json:"cpu"`
-	Node int	`json:"node"`
-	Socket int  `json:"socket"`	
-	Core int	 `json:"core"`
+	CPU string 	`json:"cpu"`
+	Node string	`json:"node"`
+	Socket string  `json:"socket"`	
+	Core string	 `json:"core"`
 	Cache string `json:"l1d:l1i:l2:l3"`
 }
 

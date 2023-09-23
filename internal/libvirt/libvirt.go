@@ -5,13 +5,14 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
+	"test/host/cpu"
 	qemuhypervisor "test/internal/libvirt/qemu"
 	"test/internal/network"
 	libvirtnetwork "test/internal/network/libvirt"
 	"test/internal/network/ovs"
 	"test/model"
-	"test/host/cpu"
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
@@ -278,7 +279,7 @@ func (lv *Libvirt) GetCPUPinning(count int,
 			}
 
 			for _,pin := range *dom.Vcpupin {
-				if pin.Cpuset == cpu.CPU {
+				if fmt.Sprintf("%d",pin.Cpuset) == cpu.CPU {
 					add = false
 				}
 			}
@@ -292,19 +293,19 @@ func (lv *Libvirt) GetCPUPinning(count int,
 	}
 
 
-	all := map[int]map[int][]int{}
+	all := map[string]map[string][]string{}
 	for _,core := range available {
 		if all[core.Socket] == nil {
-			all[core.Socket] = map[int][]int{ core.Core : {} }
+			all[core.Socket] = map[string][]string{ core.Core : {} }
 		}
 
 		all[core.Socket][core.Core] = append(all[core.Socket][core.Core], core.CPU)
 	}
 
-	sockets := make([]int, 0, len(all))
+	sockets := make([]string, 0, len(all))
 	for k := range all { sockets = append(sockets, k) }
 	
-	cores := make([]int, 0, len(all[sockets[0]]))
+	cores := make([]string, 0, len(all[sockets[0]]))
 	for k := range all[sockets[0]] { cores = append(cores, k) }
 
 	thread_per_core := len(all[sockets[0]][cores[0]])
@@ -327,13 +328,17 @@ func (lv *Libvirt) GetCPUPinning(count int,
 
 				core_id   := cores[core]
 				socket_id := sockets[socket]
+				i,err := strconv.ParseInt(all[socket_id][core_id][thread], 10, 32)
+				if err != nil {
+					return nil, err
+				}
 
 				vcpupin = append(vcpupin, struct{
 					Vcpu   int "xml:\"vcpu,attr\""; 
 					Cpuset int "xml:\"cpuset,attr\""
 				}{
 					Vcpu  : thread_per_core*core + thread,
-					Cpuset: all[socket_id][core_id][thread],
+					Cpuset: int(i),
 				})
 			}
 		}
