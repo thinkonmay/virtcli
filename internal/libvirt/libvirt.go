@@ -277,7 +277,7 @@ func (lv *Libvirt) GetCPUPinning(count int,
 				continue
 			}
 
-			for _,pin := range dom.Vcpupin {
+			for _,pin := range *dom.Vcpupin {
 				if fmt.Sprintf("%d",pin.Cpuset) == cpu.CPU {
 					add = false
 				}
