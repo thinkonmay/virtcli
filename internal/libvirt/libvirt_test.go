@@ -28,6 +28,15 @@ import (
 
 // }
 
+func TestPinning(t *testing.T) {
+	lv := NewLibvirt()
+	result,err := lv.GetCPUPinning(16,0)
+	if err != nil {
+		t.Error(err)
+	}
+
+	fmt.Printf("%v",result)
+}
 
 func TestIP(t *testing.T) {
 	lv := NewLibvirt()

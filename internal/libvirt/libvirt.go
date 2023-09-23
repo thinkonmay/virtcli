@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"test/host/cpu"
@@ -292,6 +293,11 @@ func (lv *Libvirt) GetCPUPinning(count int,
 	
 	cores := make([]string, 0, len(all[sockets[0]]))
 	for k := range all[sockets[0]] { cores = append(cores, k) }
+	sort.Slice(cores, func(i, j int) bool {
+		a,_ := strconv.ParseInt(cores[i],10,32)
+		b,_ := strconv.ParseInt(cores[j],10,32)
+		return a < b
+	})
 
 	thread_per_core := len(all[sockets[0]][cores[0]])
 	if count % thread_per_core != 0 {
@@ -302,27 +308,22 @@ func (lv *Libvirt) GetCPUPinning(count int,
 
 	vcpupin := []model.Vcpupin{}
 	core_gonna_use  := count / thread_per_core
-	for socket := 0; socket < len(sockets); socket++ {
-		if socket != numa_node {
+	for socket_index := 0; socket_index < len(sockets); socket_index++ {
+		if socket_index != numa_node {
 			continue
 		}
 
-		for core := 0; core < core_gonna_use; core++ {
+		socket_id := sockets[socket_index]
+		for core_index := 0; core_index < core_gonna_use; core_index++ {
+			core_id   := cores[core_index]
+
 			for thread := 0; thread < thread_per_core; thread++ {
-
-
-				core_id   := cores[core]
-				socket_id := sockets[socket]
-				i,err := strconv.ParseInt(all[socket_id][core_id][thread], 10, 32)
-				if err != nil {
-					return nil, err
-				}
-
+				i,_ := strconv.ParseInt(all[socket_id][core_id][thread], 10, 32)
 				vcpupin = append(vcpupin, struct{
 					Vcpu   int "xml:\"vcpu,attr\""; 
 					Cpuset int "xml:\"cpuset,attr\""
 				}{
-					Vcpu  : thread_per_core*core + thread,
+					Vcpu  : thread_per_core*core_index + thread,
 					Cpuset: int(i),
 				})
 			}
