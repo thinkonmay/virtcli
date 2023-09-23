@@ -260,7 +260,7 @@ func (lv *Libvirt) GetCPUPinning(count int,
 	for _,cpu := range Topo.CPUs {
 		add := true
 		for _,dom := range doms {
-			if dom.Vcpupin == nil {
+			if *dom.Status != "StatusRunning" {
 				continue
 			}
 
@@ -280,26 +280,29 @@ func (lv *Libvirt) GetCPUPinning(count int,
 
 
 	all := map[string]map[string][]string{}
-	for _,core := range available {
-		if all[core.Socket] == nil {
-			all[core.Socket] = map[string][]string{ core.Core : {} }
-		}
+	max := map[string]map[string][]string{}
 
+	for _,core := range available {
+		if all[core.Socket] == nil { all[core.Socket] = map[string][]string{ core.Core : {} } }
 		all[core.Socket][core.Core] = append(all[core.Socket][core.Core], core.CPU)
 	}
+	for _,core := range Topo.CPUs {
+		if max[core.Socket] == nil { max[core.Socket] = map[string][]string{ core.Core : {} } }
+		max[core.Socket][core.Core] = append(max[core.Socket][core.Core], core.CPU)
+	}
 
-	sockets := make([]string, 0, len(all))
-	for k := range all { sockets = append(sockets, k) }
+	sockets := make([]string, 0, len(max))
+	for k := range max { sockets = append(sockets, k) }
 	
-	cores := make([]string, 0, len(all[sockets[0]]))
-	for k := range all[sockets[0]] { cores = append(cores, k) }
+	cores := make([]string, 0, len(max[sockets[0]]))
+	for k := range max[sockets[0]] { cores = append(cores, k) }
 	sort.Slice(cores, func(i, j int) bool {
 		a,_ := strconv.ParseInt(cores[i],10,32)
 		b,_ := strconv.ParseInt(cores[j],10,32)
 		return a < b
 	})
 
-	thread_per_core := len(all[sockets[0]][cores[0]])
+	thread_per_core := len(max[sockets[0]][cores[0]])
 	if count % thread_per_core != 0 {
 		return nil,fmt.Errorf("cpu count not even")
 	}
@@ -309,16 +312,21 @@ func (lv *Libvirt) GetCPUPinning(count int,
 	vcpupin := []model.Vcpupin{}
 	core_gonna_use  := count / thread_per_core
 	for socket_index := 0; socket_index < len(sockets); socket_index++ {
-		if socket_index != numa_node {
+		socket_id := sockets[socket_index]
+		if socket_id != fmt.Sprintf("%d",numa_node) {
 			continue
 		}
 
-		socket_id := sockets[socket_index]
+		cores := make([]string, 0, len(all[socket_id]))
+		for k := range all[socket_id] { cores = append(cores, k) }
+
 		for core_index := 0; core_index < core_gonna_use; core_index++ {
 			core_id   := cores[core_index]
 
+
 			for thread := 0; thread < thread_per_core; thread++ {
 				i,_ := strconv.ParseInt(all[socket_id][core_id][thread], 10, 32)
+
 				vcpupin = append(vcpupin, struct{
 					Vcpu   int "xml:\"vcpu,attr\""; 
 					Cpuset int "xml:\"cpuset,attr\""

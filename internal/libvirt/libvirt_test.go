@@ -30,7 +30,7 @@ import (
 
 func TestPinning(t *testing.T) {
 	lv := NewLibvirt()
-	result,err := lv.GetCPUPinning(16,0)
+	result,err := lv.GetCPUPinning(16,1)
 	if err != nil {
 		t.Error(err)
 	}
