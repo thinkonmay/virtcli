@@ -14,7 +14,7 @@ type HostCore struct {
 }
 
 type LsCPU struct {
-	CPUs []interface{} `json:"cpus"`
+	CPUs []HostCore `json:"cpus"`
 }
 
 func GetHostTopology() (*LsCPU,error){

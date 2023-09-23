@@ -11,6 +11,7 @@ import (
 	libvirtnetwork "test/internal/network/libvirt"
 	"test/internal/network/ovs"
 	"test/model"
+	"test/host/cpu"
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
@@ -136,17 +137,51 @@ func (lv *Libvirt) CreateVM(id string,
 	gpus []model.GPU,
 	vols []model.Disk,
 ) (string, error) {
-	dom := model.Domain{}
-	yaml.Unmarshal([]byte(libvirtVM), &dom)
-	dom.Hostdevs = []model.HostDev{}
+	dom := model.Domain{
+		Hostdevs : []model.HostDev{},
+		Name : &id,
+		Disk : vols,
+		Uuid : nil,
+
+		Memory : model.Memory{
+			Value : ram * 1024 * 1024,
+		},
+
+		CurrentMemory: model.Memory{
+			Value : ram * 1024 * 1024,
+		},
+
+		VCpu: model.VCPU{
+			Value: vcpus,
+		},
+
+		Cpu: model.CPU{
+			Topology: model.Topology{
+				Socket : 1,
+				Thread : 1,
+				Cores  : vcpus,
+			},
+		},
+	}
+
+	err := yaml.Unmarshal([]byte(libvirtVM), &dom)
+	if err != nil {
+		return "", err
+	}
+
 	for _, nd := range gpus {
+		dom.Vcpupin,err = lv.GetCPUPinning(vcpus,*nd.Capability.Numa.Node)
+		if err != nil {
+			return "", err
+		}
+
 		for _, v := range nd.Capability.IommuGroup.Address {
 			dom.Hostdevs = append(dom.Hostdevs, model.HostDev{
-				Mode:    "subsystem",
-				Type:    "pci",
-				Managed: "yes",
-				SourceAddress: &struct {
-					Domain   string "xml:\"domain,attr\""
+			Mode:    "subsystem",
+			Type:    "pci",
+			Managed: "yes",
+			SourceAddress: &struct {
+				Domain   string "xml:\"domain,attr\""
 					Bus      string "xml:\"bus,attr\""
 					Slot     string "xml:\"slot,attr\""
 					Function string "xml:\"function,attr\""
@@ -156,35 +191,19 @@ func (lv *Libvirt) CreateVM(id string,
 					Slot:     v.Slot,
 					Function: v.Function,
 				},
-			})
-		}
+		})}
 	}
 
 	iface, err := lv.network.CreateInterface()
-	if err != nil {
-		return "", err
-	}
-
-	dom.Name = &id
-	dom.Uuid = nil
-	dom.Disk = vols
 	dom.Interfaces = []model.Interface{*iface}
-
-	dom.Memory.Value = ram * 1024 * 1024
-	dom.CurrentMemory.Value = ram * 1024 * 1024
-
-	dom.VCpu.Value = vcpus
-	dom.Cpu.Topology.Socket = 1
-	dom.Cpu.Topology.Thread = 1
-	dom.Cpu.Topology.Cores = vcpus 
-
-	xml := dom.ToString()
-	result, err := lv.conn.DomainCreateXML(xml, libvirt.DomainStartValidate)
 	if err != nil {
 		return "", err
 	}
 
-
+	result, err := lv.conn.DomainCreateXML(dom.ToString(), libvirt.DomainStartValidate)
+	if err != nil {
+		return "", err
+	}
 
 
 	time.Sleep(10 * time.Second)
@@ -196,6 +215,7 @@ func (lv *Libvirt) CreateVM(id string,
 			return "",fmt.Errorf("domain %s failed to start after 30s",id)
 		}
 	}
+
 	return string(result.Name), nil
 }
 
@@ -239,16 +259,26 @@ func (lv *Libvirt) DeleteVM(name string) error {
 
 
 
-func (lv *Libvirt) GetCPUPinning(count int) *model.CPU {
-	ret,available := []cpu.HostCore{},[]cpu.HostCore{}
+func (lv *Libvirt) GetCPUPinning(count int,
+								 numa_node int,
+								 ) (*model.Vcpupin,error) {
+	available := []cpu.HostCore{}
 
 	doms := lv.ListDomains()
-	Topo,err := cpu.GetCPUPinning()
+	Topo,err := cpu.GetHostTopology()
+	if err != nil {
+		return nil,err
+	}
+
 	for _,cpu := range Topo.CPUs {
 		add := true
 		for _,dom := range doms {
-			for _,pin := dom.Cpu.Vcpupin {
-				if pin == cpu.CPU {
+			if dom.Vcpupin == nil {
+				continue
+			}
+
+			for _,pin := range *dom.Vcpupin {
+				if pin.Cpuset == cpu.CPU {
 					add = false
 				}
 			}
@@ -262,18 +292,54 @@ func (lv *Libvirt) GetCPUPinning(count int) *model.CPU {
 	}
 
 
-	sockets := map[int]struct{
-		core map[int]int
-	}{}
-
+	all := map[int]map[int][]int{}
 	for _,core := range available {
+		if all[core.Socket] == nil {
+			all[core.Socket] = map[int][]int{ core.Core : {} }
+		}
 
+		all[core.Socket][core.Core] = append(all[core.Socket][core.Core], core.CPU)
+	}
 
+	sockets := make([]int, 0, len(all))
+	for k := range all { sockets = append(sockets, k) }
+	
+	cores := make([]int, 0, len(all[sockets[0]]))
+	for k := range all[sockets[0]] { cores = append(cores, k) }
+
+	thread_per_core := len(all[sockets[0]][cores[0]])
+	if count % thread_per_core != 0 {
+		return nil,fmt.Errorf("cpu count not even")
 	}
 
 
 
-	return &mode.CPU{
+	vcpupin := model.Vcpupin{}
+	core_gonna_use  := count / thread_per_core
+	for socket := 0; socket < len(sockets); socket++ {
+		if socket != numa_node {
+			continue
+		}
 
+		for core := 0; core < core_gonna_use; core++ {
+			for thread := 0; thread < thread_per_core; thread++ {
+
+
+				core_id   := cores[core]
+				socket_id := sockets[socket]
+
+				vcpupin = append(vcpupin, struct{
+					Vcpu   int "xml:\"vcpu,attr\""; 
+					Cpuset int "xml:\"cpuset,attr\""
+				}{
+					Vcpu  : thread_per_core*core + thread,
+					Cpuset: all[socket_id][core_id][thread],
+				})
+			}
+		}
 	}
+
+
+
+	return &vcpupin,nil
 }
