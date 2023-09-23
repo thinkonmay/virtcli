@@ -189,7 +189,7 @@ func (lv *Libvirt) CreateVM(id string,
 
 	result, err := lv.conn.DomainCreateXML(dom.ToString(), libvirt.DomainNone)
 	if err != nil {
-		return "", fmt.Errorf("error starting VM: %s, \n xml: %s",err.Error(),dom.ToString())
+		return "", fmt.Errorf("error starting VM: %s",err.Error())
 	}
 
 
