@@ -158,7 +158,7 @@ func (lv *Libvirt) CreateVM(id string,
 
 	Vcpupin  := []model.Vcpupin{}
 	for _, nd := range gpus {
-		dom.Vcpupin,err = lv.GetCPUPinning(vcpus,*nd.Capability.Numa.Node)
+		Vcpupin,err = lv.GetCPUPinning(vcpus,*nd.Capability.Numa.Node)
 		if err != nil {
 			return "", err
 		}
