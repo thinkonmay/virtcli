@@ -262,7 +262,7 @@ func (lv *Libvirt) DeleteVM(name string) error {
 
 func (lv *Libvirt) GetCPUPinning(count int,
 								 numa_node int,
-								 ) (*model.Vcpupin,error) {
+								 ) ([]model.Vcpupin,error) {
 	available := []cpu.HostCore{}
 
 	doms := lv.ListDomains()
@@ -278,7 +278,7 @@ func (lv *Libvirt) GetCPUPinning(count int,
 				continue
 			}
 
-			for _,pin := range *dom.Vcpupin {
+			for _,pin := range dom.Vcpupin {
 				if fmt.Sprintf("%d",pin.Cpuset) == cpu.CPU {
 					add = false
 				}
@@ -315,7 +315,7 @@ func (lv *Libvirt) GetCPUPinning(count int,
 
 
 
-	vcpupin := model.Vcpupin{}
+	vcpupin := []model.Vcpupin{}
 	core_gonna_use  := count / thread_per_core
 	for socket := 0; socket < len(sockets); socket++ {
 		if socket != numa_node {
@@ -346,5 +346,5 @@ func (lv *Libvirt) GetCPUPinning(count int,
 
 
 
-	return &vcpupin,nil
+	return vcpupin,nil
 }

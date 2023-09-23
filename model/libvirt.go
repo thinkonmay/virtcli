@@ -12,9 +12,9 @@ type VCPU struct {
 	Placement string `xml:"placement,attr"`
 	Value     int    `xml:",chardata"`
 }
-type Vcpupin []struct{
-	Vcpu int `xml:"vcpu,attr"`
-	Cpuset int `xml:"cpuset,attr"`
+type Vcpupin struct{
+	Vcpu 	int `xml:"vcpu,attr"`
+	Cpuset 	int `xml:"cpuset,attr"`
 } 
 
 type CPU struct {
@@ -308,7 +308,7 @@ type Domain struct {
 
 
 	Emulator    Emulator     `xml:"devices>emulator"`
-	Vcpupin 	*Vcpupin 	 `xml:"cputune>vcpupin"`
+	Vcpupin 	[]Vcpupin 	 `xml:"cputune>vcpupin"`
 	Disk        []Disk       `xml:"devices>disk"`
 	Controllers []Controller `xml:"devices>controller"`
 	Interfaces  []Interface  `xml:"devices>interface"`
