@@ -162,6 +162,15 @@ func (lv *Libvirt) CreateVM(id string,
 		if err != nil {
 			return "", err
 		}
+		dom.NumaTune = &model.NumaTune{
+			Memory: struct {
+				Mode string `xml:"strict"`
+				Nodeset int `xml:"nodeset"`
+			}{
+				Mode: "strict",
+				Nodeset: *nd.Capability.Numa.Node,
+			},
+		}
 
 		for _, v := range nd.Capability.IommuGroup.Address {
 			dom.Hostdevs = append(dom.Hostdevs, model.HostDev{

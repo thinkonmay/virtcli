@@ -8,6 +8,13 @@ type Memory struct {
 	Unit  string `xml:"unit,attr"`
 	Value int    `xml:",chardata"`
 }
+type NumaTune struct {
+	Memory struct {
+		Mode string `xml:"strict"`
+		Nodeset int `xml:"nodeset"`
+	} `xml:"memory"`
+}
+
 type VCPU struct {
 	Placement string `xml:"placement,attr"`
 	Value     int    `xml:",chardata"`
@@ -293,6 +300,7 @@ type Domain struct {
 	Status        *string    // not mapped
 
 
+	NumaTune     *NumaTune `xml:"numatune"`
 	Memory        Memory   `xml:"memory"`
 	CurrentMemory Memory   `xml:"currentMemory"`
 	VCpu          VCPU     `xml:"vcpu"`
