@@ -10,8 +10,8 @@ type Memory struct {
 }
 type NumaTune struct {
 	Memory struct {
-		Mode string `xml:"strict"`
-		Nodeset int `xml:"nodeset"`
+		Mode string `xml:"mode,attr"`
+		Nodeset int `xml:"nodeset,attr"`
 	} `xml:"memory"`
 }
 

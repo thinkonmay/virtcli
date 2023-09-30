@@ -164,8 +164,8 @@ func (lv *Libvirt) CreateVM(id string,
 		}
 		dom.NumaTune = &model.NumaTune{
 			Memory: struct {
-				Mode string `xml:"strict"`
-				Nodeset int `xml:"nodeset"`
+				Mode string `xml:"mode,attr"`
+				Nodeset int `xml:"nodeset,attr"`
 			}{
 				Mode: "strict",
 				Nodeset: *nd.Capability.Numa.Node,
