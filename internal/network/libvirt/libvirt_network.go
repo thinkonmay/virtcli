@@ -113,7 +113,7 @@ func (ovs *LibvirtNetwork) CreateInterface() (*model.Interface, error) {
 	if len(nets) == 0 {
 		return nil,fmt.Errorf("not found any vnet")
 	}
-	Type := "e1000e"
+	Type := "virtio"
 	Name := nets[0].Name
 	return &model.Interface{
 		Type: "network",

@@ -42,7 +42,7 @@ func (ovs *OpenVSwitch) CreateInterface() (*model.Interface, error) {
 		return nil, err
 	}
 
-	bridge, Type := "br", "e1000e"
+	bridge, Type := "br", "virtio"
 	return &model.Interface{
 		Type: "bridge",
 		VirtualPort: &struct {
