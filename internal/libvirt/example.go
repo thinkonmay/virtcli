@@ -49,10 +49,16 @@ clock:
     timers:
         - name: hpet
           tickpolicy: null
-          present: yes
+          present: no
         - name: hypervclock
           tickpolicy: null
           present: yes
+        - name: pit
+          tickpolicy: delay
+          present: null
+        - name: rtc
+          tickpolicy: catchup
+          present: null
 onreboot:
     value: restart
 onpoweroff:
@@ -164,7 +170,7 @@ interfaces:
       source:
         network: network
       model:
-        type: e1000
+        type: virtio
 #     bandwidth:
 #       inbound:
 #           average: 1000
