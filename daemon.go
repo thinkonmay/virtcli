@@ -109,6 +109,7 @@ func (daemon *VirtDaemon) deployVM(body []byte) (any, error) {
 				Bus string "xml:\"bus,attr\""
 			}{
 				Dev: dev,
+				// Bus: "virtio", // TODO 
 				Bus: "ide",
 			},
 			Address:      nil,
