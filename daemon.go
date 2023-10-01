@@ -80,17 +80,13 @@ func (daemon *VirtDaemon) deployVM(body []byte) (any, error) {
 		dev := ""
 		switch i {
 		case 0:
-			dev = "hda"
+			dev = "vda"
 		case 1:
-			dev = "hdb"
+			dev = "vdb"
 		case 2:
-			dev = "hdc"
+			dev = "vdc"
 		case 3:
-			dev = "hdd"
-		case 4:
-			dev = "hde"
-		case 5:
-			dev = "hdf"
+			dev = "vdd"
 		}
 
 		volumes = append(volumes, model.Disk{
@@ -113,7 +109,7 @@ func (daemon *VirtDaemon) deployVM(body []byte) (any, error) {
 				Bus string "xml:\"bus,attr\""
 			}{
 				Dev: dev,
-				Bus: "virtio",
+				Bus: "ide",
 			},
 			Address:      nil,
 			Type:         "file",
