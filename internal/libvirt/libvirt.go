@@ -151,8 +151,8 @@ func (lv *Libvirt) CreateVM(id string,
 	dom.VCpu.Value = vcpus
 
 	dom.Cpu.Topology.Socket = 1
-	dom.Cpu.Topology.Thread = 1 
-	dom.Cpu.Topology.Cores  = vcpus
+	dom.Cpu.Topology.Thread = 2
+	dom.Cpu.Topology.Cores  = vcpus / 2
 
 	dom.Hostdevs = []model.HostDev{}
 	dom.Vcpupin  = []model.Vcpupin{}
