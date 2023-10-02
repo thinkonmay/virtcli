@@ -198,9 +198,9 @@ func (daemon *VirtDaemon) listVMs(data []byte) (any, error) {
 }
 
 func (daemon *VirtDaemon) listGPUs(data []byte) (any, error) {
+	domains := daemon.libvirt.ListDomains()
 	gpus := daemon.libvirt.ListGPUs()
 
-	domains := daemon.libvirt.ListDomains()
 	result := struct {
 		Active    []model.GPU `yaml:"active"`
 		Available []model.GPU `yaml:"open"`
@@ -212,7 +212,9 @@ func (daemon *VirtDaemon) listGPUs(data []byte) (any, error) {
 	for _, g := range gpus {
 		add := true
 		for _, d := range domains {
-			if *d.Status !=  qemu.StatusRunning.String() &&
+			if (d.Status == nil) {
+				continue
+			} else if *d.Status !=  qemu.StatusRunning.String() &&
 			   *d.Status !=  qemu.StatusPaused.String() {
 				continue
 			}
