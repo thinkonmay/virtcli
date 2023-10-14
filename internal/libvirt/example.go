@@ -24,6 +24,7 @@ os:
         arch: x86_64
         machine: pc-i440fx-focal
         value: hvm
+# hideVM
     smbios:
         mode: host
 features:
@@ -31,6 +32,7 @@ features:
     apic: {}
     vmport:
         state: "off"
+# hideVM
     kvm:
         hidden: 
             state: on
@@ -41,6 +43,7 @@ cpu:
         socket: 1
         cores: 16
         thread: 1
+# hideVM
     feature:
         policy: disable
         name: hypervisor

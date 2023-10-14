@@ -107,15 +107,13 @@ func NewLibvirtNetwork() network.Network {
 	return ret
 }
 
-func (ovs *LibvirtNetwork) CreateInterface() (*model.Interface, error) {
+func (ovs *LibvirtNetwork) CreateInterface(driver string) (*model.Interface, error) {
 	nets,_,_ := ovs.conn.ConnectListAllNetworks(1, libvirt.ConnectListNetworksActive)
 
 	if len(nets) == 0 {
 		return nil,fmt.Errorf("not found any vnet")
 	}
 
-	// Type := "virtio" // TODO
-	Type := "e1000e"
 	Name := nets[0].Name
 	return &model.Interface{
 		Type: "network",
@@ -125,7 +123,7 @@ func (ovs *LibvirtNetwork) CreateInterface() (*model.Interface, error) {
 		Model: &struct {
 			Type *string "xml:\"type,attr\""
 		}{
-			Type: &Type,
+			Type: &driver,
 		},
 	}, nil
 }

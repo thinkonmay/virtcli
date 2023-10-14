@@ -4,5 +4,5 @@ import "test/model"
 
 type Network interface {
 	FindDomainIPs(dom model.Domain) []string
-	CreateInterface() (*model.Interface,error)
+	CreateInterface(driver string) (*model.Interface,error)
 }

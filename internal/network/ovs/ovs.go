@@ -35,15 +35,14 @@ func NewOVS(iface string) network.Network {
 	}
 }
 
-func (ovs *OpenVSwitch) CreateInterface() (*model.Interface, error) {
+func (ovs *OpenVSwitch) CreateInterface(driver string) (*model.Interface, error) {
 	now := fmt.Sprintf("%d", time.Now().UnixMilli())
 	err := ovs.svc.VSwitch.AddPort("br", now)
 	if err != nil {
 		return nil, err
 	}
 
-	// bridge, Type := "br", "virtio" // TODO
-	bridge, Type := "br", "e1000e"
+	bridge := "br"
 	return &model.Interface{
 		Type: "bridge",
 		VirtualPort: &struct {
@@ -62,7 +61,7 @@ func (ovs *OpenVSwitch) CreateInterface() (*model.Interface, error) {
 		Model: &struct {
 			Type *string "xml:\"type,attr\""
 		}{
-			Type: &Type,
+			Type: &driver,
 		},
 	}, nil
 }

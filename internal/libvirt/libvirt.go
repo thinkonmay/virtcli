@@ -139,6 +139,8 @@ func (lv *Libvirt) CreateVM(id string,
 	ram int,
 	gpus []model.GPU,
 	vols []model.Disk,
+	VDriver bool,
+	HideVM  bool,
 ) (string, error) {
 	dom := model.Domain{}
 	err := yaml.Unmarshal([]byte(libvirtVM), &dom)
@@ -191,10 +193,21 @@ func (lv *Libvirt) CreateVM(id string,
 		})}
 	}
 
-	iface, err := lv.network.CreateInterface()
+	driver := "e1000e"
+	if VDriver {
+		driver = "virtio"
+	}
+
+	iface, err := lv.network.CreateInterface(driver)
 	dom.Interfaces = []model.Interface{*iface}
 	if err != nil {
 		return "", err
+	}
+
+	if HideVM {
+		dom.Cpu.Feature = nil
+		dom.Features.Kvm = nil
+		dom.OS.Smbios = nil
 	}
 
 	xml := dom.ToString()

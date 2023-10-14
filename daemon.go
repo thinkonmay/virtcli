@@ -68,11 +68,18 @@ func (daemon *VirtDaemon) deployVM(body []byte) (any, error) {
 		RAM     int         `yaml:"ram"`
 		GPU     []model.GPU `yaml:"gpu"`
 		Volumes []Volume    `yaml:"volumes"`
+		VDriver bool		`yaml:"vdriver"`
+		HideVM  bool		`yaml:"hidevm"`
 	}{}
 
 	err := yaml.Unmarshal(body, &server)
 	if err != nil {
 		return nil, err
+	}
+
+	driver := "ide"
+	if server.VDriver {
+		driver = "virtio"
 	}
 
 	volumes := []model.Disk{}
@@ -109,8 +116,7 @@ func (daemon *VirtDaemon) deployVM(body []byte) (any, error) {
 				Bus string "xml:\"bus,attr\""
 			}{
 				Dev: dev,
-				// Bus: "virtio", // TODO 
-				Bus: "ide",
+				Bus: driver,
 			},
 			Address:      nil,
 			Type:         "file",
@@ -125,6 +131,8 @@ func (daemon *VirtDaemon) deployVM(body []byte) (any, error) {
 		server.RAM,
 		server.GPU,
 		volumes,
+		server.VDriver,
+		server.HideVM,
 	)
 
 	return struct {
