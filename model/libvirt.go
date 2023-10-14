@@ -359,10 +359,10 @@ type GPU struct {
 	Capability struct {
 		Type string `xml:"type,attr"`
 		Class string `xml:"class"`
-		Domain int `xml:"domain"`
-		Bus int `xml:"bus"`
-		Slot int `xml:"slot"`
-		Function int `xml:"function"`
+		Domain string `xml:"domain"`
+		Bus string `xml:"bus"`
+		Slot string `xml:"slot"`
+		Function string `xml:"function"`
 
 		Product  struct{
 			Val string `xml:",chardata"`
@@ -386,9 +386,9 @@ type GPU struct {
 		} `xml:"numa"`
 		Link []struct{
 			Validity 	*string `xml:"validity,attr"`
-			Port 		*int`xml:"port,attr"`
-			Speed 		*int `xml:"speed,attr"`
-			Width 		*int `xml:"width,attr"`
+			Port 		*float32 `xml:"port,attr"`
+			Speed 		*float32 `xml:"speed,attr"`
+			Width 		*float32 `xml:"width,attr"`
 		} `xml:"pci-express>link"` 
 	} `xml:"capability"`
 }
@@ -416,7 +416,7 @@ type Iface struct {
 
 	Link *struct {
 		State *string `xml:"state,attr"`
-		Speed *int `xml:"speed,attr"`
+		Speed *float64 `xml:"speed,attr"`
 	} `xml:"link"`
 }
 func (iface *Iface)Parse(dat string) error {
