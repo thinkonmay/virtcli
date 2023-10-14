@@ -210,7 +210,7 @@ func (lv *Libvirt) CreateVM(id string,
 		return "", err
 	}
 
-	if HideVM {
+	if !HideVM {
 		dom.Cpu.Feature = nil
 		dom.Features.Kvm = nil
 		dom.OS.Smbios = nil
