@@ -72,7 +72,11 @@ func (lv *Libvirt) ListDomains() []model.Domain {
 		}
 
 		dom := model.Domain{}
-		dom.Parse([]byte(desc))
+		fmt.Println(desc)
+		err = dom.Parse([]byte(desc))
+		if err != nil {
+			panic(err)
+		}
 		for _, d2 := range statuses {
 			if d2.Name == d.Name {
 				status := d2.Status.String()
@@ -98,7 +102,10 @@ func (lv *Libvirt) ListGPUs() []model.GPU {
 		}
 
 		gpu := model.GPU{}
-		gpu.Parse([]byte(desc))
+		err = gpu.Parse([]byte(desc))
+		if err != nil {
+			panic(err)
+		}
 
 		vendor := strings.ToLower(gpu.Capability.Vendor.Val)
 		if !strings.Contains(vendor, "nvidia") {
