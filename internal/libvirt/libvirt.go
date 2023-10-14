@@ -72,7 +72,6 @@ func (lv *Libvirt) ListDomains() []model.Domain {
 		}
 
 		dom := model.Domain{}
-		fmt.Println(desc)
 		err = dom.Parse([]byte(desc))
 		if err != nil {
 			panic(err)
