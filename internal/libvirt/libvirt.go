@@ -166,7 +166,11 @@ func (lv *Libvirt) CreateVM(id string,
 	dom.Vcpupin  = []model.Vcpupin{}
 
 	for _, nd := range gpus {
-		dom.Vcpupin,err = lv.GetCPUPinning(vcpus,*nd.Capability.Numa.Node)
+		node := 0
+		if nd.Capability.Numa != nil {
+			node = *nd.Capability.Numa.Node
+		}
+		dom.Vcpupin,err = lv.GetCPUPinning(vcpus,node)
 		if err != nil {
 			return "", err
 		}
@@ -176,7 +180,7 @@ func (lv *Libvirt) CreateVM(id string,
 				Nodeset int `xml:"nodeset,attr"`
 			}{
 				Mode: "strict",
-				Nodeset: *nd.Capability.Numa.Node,
+				Nodeset: node,
 			},
 		}
 
