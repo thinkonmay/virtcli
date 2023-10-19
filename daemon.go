@@ -134,7 +134,7 @@ func (daemon *VirtDaemon) deployVM(body []byte) (any, error) {
 		volumes,
 		server.VDriver,
 		server.HideVM,
-		server.Pincpu
+		server.Pincpu,
 	)
 
 	return struct {
