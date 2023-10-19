@@ -147,6 +147,7 @@ func (lv *Libvirt) CreateVM(id string,
 	vols []model.Disk,
 	VDriver bool,
 	HideVM  bool,
+	Pincpu  bool,
 ) (string, error) {
 	dom := model.Domain{}
 	err := yaml.Unmarshal([]byte(libvirtVM), &dom)
@@ -166,22 +167,24 @@ func (lv *Libvirt) CreateVM(id string,
 	dom.Vcpupin  = []model.Vcpupin{}
 
 	for _, nd := range gpus {
-		node := 0
-		if nd.Capability.Numa != nil {
-			node = *nd.Capability.Numa.Node
-		}
-		dom.Vcpupin,err = lv.GetCPUPinning(vcpus,node)
-		if err != nil {
-			return "", err
-		}
-		dom.NumaTune = &model.NumaTune{
-			Memory: struct {
-				Mode string `xml:"mode,attr"`
-				Nodeset int `xml:"nodeset,attr"`
-			}{
-				Mode: "strict",
-				Nodeset: node,
-			},
+		if  Pincpu {
+			node := 0
+			if nd.Capability.Numa != nil {
+				node = *nd.Capability.Numa.Node
+			}
+			dom.Vcpupin,err = lv.GetCPUPinning(vcpus,node)
+			if err != nil {
+				return "", err
+			}
+			dom.NumaTune = &model.NumaTune{
+				Memory: struct {
+					Mode string `xml:"mode,attr"`
+					Nodeset int `xml:"nodeset,attr"`
+				}{
+					Mode: "strict",
+					Nodeset: node,
+				},
+			}
 		}
 
 		for _, v := range nd.Capability.IommuGroup.Address {

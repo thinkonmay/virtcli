@@ -70,6 +70,7 @@ func (daemon *VirtDaemon) deployVM(body []byte) (any, error) {
 		Volumes []Volume    `yaml:"volumes"`
 		VDriver bool		`yaml:"vdriver"`
 		HideVM  bool		`yaml:"hidevm"`
+		Pincpu  bool		`yaml:"pincpu"`
 	}{}
 
 	err := yaml.Unmarshal(body, &server)
@@ -133,6 +134,7 @@ func (daemon *VirtDaemon) deployVM(body []byte) (any, error) {
 		volumes,
 		server.VDriver,
 		server.HideVM,
+		server.Pincpu
 	)
 
 	return struct {
