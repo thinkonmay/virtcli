@@ -26,6 +26,8 @@ func NewVirtDaemon(verb string, data []byte) (any, error) {
 		fun = daemon.deleteVM
 	case "/status":
 		fun = daemon.statusVM
+	case "/attach":
+		fun = daemon.attachDisk
 	case "/vms":
 		fun = daemon.listVMs
 	case "/gpus":
@@ -54,6 +56,59 @@ func backingChain(vols *Volume) *model.BackingStore {
 		},
 		BackingStore: backingChain(vols.Backing),
 	}
+}
+
+
+func (daemon *VirtDaemon) attachDisk(body []byte) (any, error) {
+	server := struct {
+		ID      string      `yaml:"id"`
+		Volumes []Volume    `yaml:"volumes"`
+	}{}
+
+	err := yaml.Unmarshal(body, &server)
+	if err != nil {
+		return nil, err
+	}
+
+	driver := "virtio"
+	volumes := []model.Disk{}
+	for _,v := range server.Volumes {
+		volumes = append(volumes, model.Disk{
+			Driver: &struct {
+				Name string "xml:\"name,attr\""
+				Type string "xml:\"type,attr\""
+			}{
+				Name: "qemu",
+				Type: "qcow2",
+			},
+			Source: &struct {
+				File  string "xml:\"file,attr\""
+				Index int    "xml:\"index,attr\""
+			}{
+				File:  v.Path,
+				Index: 1,
+			},
+			Target: &struct {
+				Dev string "xml:\"dev,attr\""
+				Bus string "xml:\"bus,attr\""
+			}{
+				Dev: "",
+				Bus: driver,
+			},
+			Address:      nil,
+			Type:         "file",
+			Device:       "disk",
+			BackingStore: backingChain(v.Backing),
+		})
+	}
+
+
+	err = daemon.libvirt.AttachDisk(
+		server.ID,
+		volumes,
+	)
+
+	return "SUCCESS", err
 }
 
 type Volume struct {

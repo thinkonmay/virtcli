@@ -116,6 +116,10 @@ type Disk struct {
 	Type   string `xml:"type,attr"`
 	Device string `xml:"device,attr"`
 }
+func (domain *Disk)ToString() string {
+	data,_ := xml.MarshalIndent(domain,"","  ")
+	return string(data)
+}
 
 type Controller struct {
 	Type  *string  `xml:"type,attr"`

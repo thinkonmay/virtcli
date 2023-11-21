@@ -241,19 +241,38 @@ func (lv *Libvirt) CreateVM(id string,
 		}
 	}
 
-	// for _,v := range Vcpupin {
-	// 	fmt.Printf("pin host cpu %d to guest cpu %d",v.Cpuset,v.Vcpu)
-	// 	result,err := exec.Command("virsh","vcpupin",
-	// 		"--vcpu",fmt.Sprintf("%d",v.Vcpu),
-	// 		"--cpulist",fmt.Sprintf("%d",v.Cpuset),
-	// 		"--live").Output()
-	// 	if err != nil {
-	// 		fmt.Println(err.Error())
-	// 	} else {
-	// 		fmt.Println(string(result))
-	// 	}
-	// }
 	return string(result.Name), nil
+}
+
+func (lv *Libvirt) AttachDisk(
+	name string,
+	vols []model.Disk) error {
+
+	flags := libvirt.ConnectListDomainsActive 
+	doms, _, err := lv.conn.ConnectListAllDomains(1, flags)
+	if err != nil {
+		return err
+	}
+
+	dom := libvirt.Domain{Name: "null"}
+	for _, d := range doms {
+		if d.Name == name {
+			dom = d
+		}
+	}
+
+	if dom.Name == "null" {
+		return fmt.Errorf("unknown VM name")
+	}
+
+	for _, d := range vols {
+		err := lv.conn.DomainAttachDevice(dom,d.ToString())
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (lv *Libvirt) DeleteVM(name string) error {
