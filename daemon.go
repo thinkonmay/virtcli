@@ -72,7 +72,20 @@ func (daemon *VirtDaemon) attachDisk(body []byte) (any, error) {
 
 	driver := "virtio"
 	volumes := []model.Disk{}
-	for _,v := range server.Volumes {
+	for i,v := range server.Volumes {
+		dev := ""
+		switch i {
+		case 0:
+			dev = "vdb"
+		case 1:
+			dev = "vdc"
+		case 2:
+			dev = "vdd"
+		case 3:
+			dev = "vde"
+		}
+
+
 		volumes = append(volumes, model.Disk{
 			Driver: &struct {
 				Name string "xml:\"name,attr\""
@@ -92,7 +105,7 @@ func (daemon *VirtDaemon) attachDisk(body []byte) (any, error) {
 				Dev string "xml:\"dev,attr\""
 				Bus string "xml:\"bus,attr\""
 			}{
-				Dev: "",
+				Dev: dev,
 				Bus: driver,
 			},
 			Address:      nil,
