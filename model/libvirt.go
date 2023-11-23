@@ -91,6 +91,7 @@ func (domain *BackingStore)ToString() string {
 
 
 type Disk struct {
+	XMLName xml.Name `xml:"disk" yaml:"disk,inline"`
 	Driver *struct {
 		Name string `xml:"name,attr"`
 		Type string `xml:"type,attr"`
