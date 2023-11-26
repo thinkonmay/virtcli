@@ -5,7 +5,6 @@ import (
 	"test/internal/libvirt"
 	"test/model"
 
-	"github.com/digitalocean/go-qemu/qemu"
 	"gopkg.in/yaml.v3"
 )
 
@@ -291,9 +290,6 @@ func (daemon *VirtDaemon) listGPUs(data []byte) (any, error) {
 		add := true
 		for _, d := range domains {
 			if (d.Status == nil) {
-				continue
-			} else if *d.Status !=  qemu.StatusRunning.String() &&
-			   *d.Status !=  qemu.StatusPaused.String() {
 				continue
 			}
 

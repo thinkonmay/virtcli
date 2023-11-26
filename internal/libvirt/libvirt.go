@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"test/host/cpu"
-	qemuhypervisor "test/internal/libvirt/qemu"
 	"test/internal/network"
 	libvirtnetwork "test/internal/network/libvirt"
 	"test/internal/network/ovs"
@@ -19,7 +18,6 @@ import (
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/digitalocean/go-libvirt/socket/dialers"
-	"github.com/digitalocean/go-qemu/qemu"
 	"gopkg.in/yaml.v3"
 )
 
@@ -28,12 +26,10 @@ type Libvirt struct {
 	conn    *libvirt.Libvirt
 
 	network network.Network
-	qemu    qemuhypervisor.QEMUHypervisor
 }
 
 func NewLibvirt() *Libvirt {
 	ret := &Libvirt{
-		qemu:    *qemuhypervisor.NewQEMUHypervisor(),
 	}
 
 	ovsif := os.Getenv("OVS_IFACE")
@@ -64,7 +60,6 @@ func (lv *Libvirt) ListDomains() []model.Domain {
 	}
 
 	ret := []model.Domain{}
-	statuses := lv.qemu.ListDomainWithStatus()
 	for _, d := range domains {
 		desc, err := lv.conn.DomainGetXMLDesc(d, libvirt.DomainXMLSecure)
 		if err != nil {
@@ -76,11 +71,19 @@ func (lv *Libvirt) ListDomains() []model.Domain {
 		if err != nil {
 			panic(err)
 		}
-		for _, d2 := range statuses {
-			if d2.Name == d.Name {
-				status := d2.Status.String()
-				dom.Status = &status
-			}
+
+		active,err := lv.conn.DomainIsActive(d)
+		if err != nil {
+			panic(err)
+		}
+
+		if active == 1 {
+			status := "StatusRunning"
+			dom.Status = &status
+		} else {
+			status := "StatusShutdown"
+			dom.Status = &status
+
 		}
 
 		ret = append(ret, dom)
@@ -228,20 +231,9 @@ func (lv *Libvirt) CreateVM(id string,
 	result, err := lv.conn.DomainCreateXML(xml, libvirt.DomainStartValidate)
 	if err != nil {
 		return "", fmt.Errorf("error starting VM: %s",err.Error())
+	} else {
+		return string(result.Name), nil
 	}
-
-
-	time.Sleep(10 * time.Second)
-	statuses := lv.qemu.ListDomainWithStatus()
-	for _, d := range statuses {
-		if d.Name == id && d.Status != qemu.StatusRunning{
-			lv.conn.DomainDestroy(result)
-			lv.conn.DomainUndefine(result)
-			return "",fmt.Errorf("domain %s failed to start after 30s",id)
-		}
-	}
-
-	return string(result.Name), nil
 }
 
 func (lv *Libvirt) AttachDisk(
@@ -300,15 +292,8 @@ func (lv *Libvirt) DeleteVM(name string) error {
 
 
 	
-	lv.conn.DomainShutdown(dom)
-	time.Sleep(10 * time.Second)
-	statuses := lv.qemu.ListDomainWithStatus()
-	for _, d := range statuses {
-		if d.Name == dom.Name {
-			lv.conn.DomainDestroy(dom)
-			lv.conn.DomainUndefine(dom)
-		}
-	}
+	lv.conn.DomainDestroy(dom)
+	lv.conn.DomainUndefine(dom)
 
 	return nil
 }
