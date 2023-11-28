@@ -291,6 +291,8 @@ func (daemon *VirtDaemon) listGPUs(data []byte) (any, error) {
 		for _, d := range domains {
 			if (d.Status == nil) {
 				continue
+			} else if *d.Status == "StatusShutdown" {
+				continue
 			}
 
 			for _, hd := range d.Hostdevs {
