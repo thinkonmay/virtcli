@@ -175,10 +175,12 @@ func (lv *Libvirt) CreateVM(id string,
 			if nd.Capability.Numa != nil {
 				node = *nd.Capability.Numa.Node
 			}
-			dom.Vcpupin,err = lv.GetCPUPinning(vcpus,node)
-			if err != nil {
-				return "", err
-			}
+
+			// NOTE: do not use vcpu pinning as boot issue
+			// dom.Vcpupin,err = lv.GetCPUPinning(vcpus,node) 
+			// if err != nil {
+			// 	return "", err
+			// }
 			dom.NumaTune = &model.NumaTune{
 				Memory: struct {
 					Mode string `xml:"mode,attr"`

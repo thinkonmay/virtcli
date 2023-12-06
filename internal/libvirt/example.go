@@ -184,16 +184,6 @@ interfaces:
 #           average: 1000
 #           peak: 1000
 #           burst: 1000
-channel:
-    type: spicevmc
-    target:
-        type: virtio
-        name: com.redhat.spice.0
-    address:
-        type: virtio-serial
-        controller: "0"
-        bus: "0"
-        port: "1"
 input: null
 graphic:
     type: spice
