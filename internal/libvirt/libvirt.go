@@ -181,15 +181,15 @@ func (lv *Libvirt) CreateVM(id string,
 			// if err != nil {
 			// 	return "", err
 			// }
-			dom.NumaTune = &model.NumaTune{
-				Memory: struct {
-					Mode string `xml:"mode,attr"`
-					Nodeset int `xml:"nodeset,attr"`
-				}{
-					Mode: "strict",
-					Nodeset: node,
-				},
-			}
+			// dom.NumaTune = &model.NumaTune{
+			// 	Memory: struct {
+			// 		Mode string `xml:"mode,attr"`
+			// 		Nodeset int `xml:"nodeset,attr"`
+			// 	}{
+			// 		Mode: "strict",
+			// 		Nodeset: node,
+			// 	},
+			// }
 		}
 
 		for _, v := range nd.Capability.IommuGroup.Address {
