@@ -171,10 +171,10 @@ func (lv *Libvirt) CreateVM(id string,
 
 	for _, nd := range gpus {
 		if  Pincpu {
-			node := 0
-			if nd.Capability.Numa != nil {
-				node = *nd.Capability.Numa.Node
-			}
+			// node := 0
+			// if nd.Capability.Numa != nil {
+			// 	node = *nd.Capability.Numa.Node
+			// }
 
 			// NOTE: do not use vcpu pinning as boot issue
 			// dom.Vcpupin,err = lv.GetCPUPinning(vcpus,node) 
