@@ -294,7 +294,7 @@ func (lv *Libvirt) DeleteVM(name string) error {
 
 
 	
-	lv.conn.DomainDestroy(dom)
+	lv.conn.DomainShutdown(dom)
 	lv.conn.DomainUndefine(dom)
 
 	return nil
